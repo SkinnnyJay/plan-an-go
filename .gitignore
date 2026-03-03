@@ -1,0 +1,79 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Testing
+# Note: All test outputs now go to tmp/ (coverage, playwright-report, test-results)
+# Note: __tests__/e2e/__snapshots__/ is tracked for visual regression
+
+# Next.js
+.next
+out
+build
+
+# Production
+dist
+
+# Misc
+.DS_Store
+*.pem
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+history.log
+
+# Application logs (root level only)
+#/logs/
+
+# Local env files
+.env
+.env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Vercel
+.vercel
+
+# Docker volumes (keep docker-compose.yml tracked)
+.docker-data/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Generated files
+public/theme-constants.js
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+.cursor/debug.log
+
+# Supabase
+.supabase
+
+# ROM files (all tracked for dev/CI)
+
+# Husky
+.husky/_
+
+# Temporary files
+*.tmp
+*.temp
+
+# Temporary files directory (runtime artifacts, research repos, test data)
+tmp/
+!tmp/.gitkeep
+
+# Git Worktrees (keep structure, ignore contents)
+.worktrees/*
+!.worktrees/.gitkeep
+!.worktrees/README.md

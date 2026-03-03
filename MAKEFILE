@@ -1,0 +1,113 @@
+# plan-an-go — convenience targets (run from repo root)
+
+.PHONY: \
+	help \
+	run run-claude run-codex run-cursor-agent \
+	run-forever run-forever-claude run-forever-codex run-forever-cursor-agent \
+	validate validate-claude validate-codex validate-cursor-agent \
+	file-watch task-watcher plan-check slack-update \
+	setup install-clis auth-cli
+
+help:
+	@echo "plan-an-go targets:"
+	@echo ""
+	@echo "Core"
+	@echo "  make run                         — One implementer cycle (scripts/cli/plan-an-go.sh)"
+	@echo "  make run-forever                 — Implementer → validator loop (scripts/cli/plan-an-go-forever.sh)"
+	@echo "  make validate FILE=<path>        — Validate implementer output (scripts/cli/plan-an-go-validate.sh)"
+	@echo ""
+	@echo "Core (explicit CLI)"
+	@echo "  make run-claude                  — One implementer cycle (Claude)"
+	@echo "  make run-codex                   — One implementer cycle (Codex)"
+	@echo "  make run-cursor-agent            — One implementer cycle (Cursor agent)"
+	@echo "  make run-forever-claude          — Forever loop (Claude)"
+	@echo "  make run-forever-codex           — Forever loop (Codex)"
+	@echo "  make run-forever-cursor-agent    — Forever loop (Cursor agent)"
+	@echo "  make validate-claude FILE=<path> — Validate output (Claude)"
+	@echo "  make validate-codex FILE=<path>  — Validate output (Codex)"
+	@echo "  make validate-cursor-agent FILE=<path> — Validate output (Cursor agent)"
+	@echo ""
+	@echo "Tools"
+	@echo "  make file-watch                  — Watch file changes (scripts/cli/plan-an-go-file-watch.sh)"
+	@echo "  make task-watcher                — Live PRD task list (scripts/cli/plan-an-go-task-watcher.sh)"
+	@echo "  make plan-check FILE=<path>      — Check PLAN/PRD formatting (scripts/cli/plan-an-go-plan-check.sh)"
+	@echo "  make slack-update MSG='<text>' [THREAD=<ts>] — Post Slack update"
+	@echo ""
+	@echo "Examples (from runners)"
+	@echo "  ./scripts/cli/plan-an-go-forever.sh"
+	@echo "  ./scripts/cli/plan-an-go-forever.sh 100 50"
+	@echo "  ./scripts/cli/plan-an-go-forever.sh 100 50 --no-validate"
+	@echo "  ./scripts/cli/plan-an-go-forever.sh --no-threads"
+	@echo "  ./scripts/cli/plan-an-go-forever.sh --no-slack"
+	@echo "  ./scripts/cli/plan-an-go-forever.sh --tail"
+	@echo "  ./scripts/cli/plan-an-go-forever.sh --tail=my.log"
+	@echo "  ./scripts/cli/plan-an-go-forever.sh --cli codex"
+	@echo "  ./scripts/cli/plan-an-go-forever.sh --cli cursor-agent"
+	@echo ""
+	@echo "System"
+	@echo "  make setup                       — Run system setup (scripts/system/setup.sh)"
+	@echo "  make install-clis                — Install CLIs (scripts/system/install-clis.sh)"
+	@echo "  make auth-cli                    — Authenticate CLIs (scripts/system/auth-cli.sh)"
+
+run:
+	./scripts/cli/plan-an-go.sh
+
+run-claude:
+	./scripts/cli/plan-an-go-claude.sh
+
+run-codex:
+	./scripts/cli/plan-an-go-codex.sh
+
+run-cursor-agent:
+	./scripts/cli/plan-an-go-cursor-agent.sh
+
+run-forever:
+	./scripts/cli/plan-an-go-forever.sh
+
+run-forever-claude:
+	./scripts/cli/plan-an-go-forever-claude.sh
+
+run-forever-codex:
+	./scripts/cli/plan-an-go-forever-codex.sh
+
+run-forever-cursor-agent:
+	./scripts/cli/plan-an-go-forever-cursor-agent.sh
+
+validate:
+	@if [ -z "$(FILE)" ]; then echo "Usage: make validate FILE=path/to/implementer_output"; exit 1; fi
+	./scripts/cli/plan-an-go-validate.sh "$(FILE)"
+
+validate-claude:
+	@if [ -z "$(FILE)" ]; then echo "Usage: make validate-claude FILE=path/to/implementer_output"; exit 1; fi
+	./scripts/cli/plan-an-go-validate-claude.sh "$(FILE)"
+
+validate-codex:
+	@if [ -z "$(FILE)" ]; then echo "Usage: make validate-codex FILE=path/to/implementer_output"; exit 1; fi
+	./scripts/cli/plan-an-go-validate-codex.sh "$(FILE)"
+
+validate-cursor-agent:
+	@if [ -z "$(FILE)" ]; then echo "Usage: make validate-cursor-agent FILE=path/to/implementer_output"; exit 1; fi
+	./scripts/cli/plan-an-go-validate-cursor-agent.sh "$(FILE)"
+
+file-watch:
+	./scripts/cli/plan-an-go-file-watch.sh
+
+task-watcher:
+	./scripts/cli/plan-an-go-task-watcher.sh
+
+plan-check:
+	@if [ -z "$(FILE)" ]; then echo "Usage: make plan-check FILE=path/to/PLAN.md"; exit 1; fi
+	./scripts/cli/plan-an-go-plan-check.sh "$(FILE)"
+
+slack-update:
+	@if [ -z "$(MSG)" ]; then echo "Usage: make slack-update MSG='message' [THREAD=thread_ts]"; exit 1; fi
+	@if [ -n "$(THREAD)" ]; then ./scripts/cli/plan-an-go-slack-update.sh "$(MSG)" "$(THREAD)"; else ./scripts/cli/plan-an-go-slack-update.sh "$(MSG)"; fi
+
+setup:
+	./scripts/system/setup.sh
+
+install-clis:
+	./scripts/system/install-clis.sh
+
+auth-cli:
+	./scripts/system/auth-cli.sh

@@ -1,0 +1,67 @@
+---
+description: "Workflow for fixing lint, type, test, and E2E failures. Follow this process whenever resolving multiple errors."
+alwaysApply: true
+---
+
+# Fixing Workflow
+
+When fixing lint errors, type errors, test failures, or E2E failures, always follow this exact process. Never skip steps or take shortcuts.
+
+## Step 1: Discover ALL Failures
+
+Run the appropriate command to get the full picture before touching any code:
+
+| Category | Discovery command |
+|----------|-------------------|
+| Lint / format | `npm run check` |
+| Type errors | `npm run typecheck` |
+| Unit/integration tests | `npm run test` |
+| E2E tests | `npm run test:e2e` or `npm run test:e2e:all` |
+| Build | `npm run build` |
+
+Read the complete output. For Playwright, also check `./logs/playwright-results.json`.
+
+## Step 2: Create a Task List of ALL Failures
+
+Before fixing anything, catalog every failure into a task list:
+- One item per distinct error/failure (group related errors in the same file)
+- Include the file path and a short description of the issue
+- Mark all items as pending
+
+Example:
+```
+[ ] lib/services/chat.service.ts -- missing return type on `archive()`
+[ ] lib/features/jobs/index.ts -- unused import `BackgroundJob`
+[ ] __tests__/chat.test.ts -- "should archive chat" assertion fails (expected 'archived', got null)
+```
+
+## Step 3: Fix Each Issue Individually
+
+For each item in the task list:
+1. Read the failing file and understand the root cause
+2. Apply the minimal, correct fix
+3. Verify the fix by running ONLY the affected scope:
+
+| Category | Verify single fix |
+|----------|-------------------|
+| Lint/format | `npx biome check <file>` |
+| Type errors | `npx tsc --noEmit` (full check is fast enough) |
+| Unit test | `npx vitest run <test-file>` |
+| E2E test | `npx playwright test <spec-file>` |
+
+4. Mark the item as done only after the individual verification passes
+5. If the fix introduces a new error, fix that before moving on
+
+## Step 4: Do NOT Run the Full Suite Until All Items Are Resolved
+
+- Iterate through the task list one item at a time
+- Do not run `npm run test`, `npm run check`, or `npm run test:e2e` in full until every item is checked off
+- This avoids wasting time on long suite runs while issues remain
+
+## Step 5: Run the Full Suite to Confirm
+
+Once all items are individually resolved:
+1. Run the full command from Step 1
+2. If new failures appear (regressions from fixes), go back to Step 2 with only the new failures
+3. Repeat until the suite passes cleanly
+4. Run `npm run check && npm run typecheck` as a final gate

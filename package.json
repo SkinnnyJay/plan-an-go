@@ -1,0 +1,19 @@
+{
+  "name": "plan-an-go",
+  "version": "1.0.0",
+  "description": "Implement → validate pipeline driven by a PRD; runs Implementation and Validation agents in a loop.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "setup": "./scripts/system/setup.sh",
+    "install-clis": "./scripts/system/install-clis.sh",
+    "auth-cli": "./scripts/system/auth-cli.sh",
+    "plan-an-go": "./scripts/cli/plan-an-go.sh",
+    "plan-an-go-forever": "./scripts/cli/plan-an-go-forever.sh",
+    "plan-an-go-validate": "./scripts/cli/plan-an-go-validate.sh",
+    "plan-an-go-file-watch": "./scripts/cli/plan-an-go-file-watch.sh",
+    "plan-an-go-slack-update": "./scripts/cli/plan-an-go-slack-update.sh"
+  },
+  "author": "",
+  "license": "ISC"
+}
