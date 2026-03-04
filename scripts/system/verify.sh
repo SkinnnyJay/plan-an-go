@@ -4,6 +4,7 @@
 #        ./verify.sh --force    # print warnings but always exit 0
 
 set -e
+set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ENV_FILE="$REPO_ROOT/.env"
@@ -47,23 +48,23 @@ fi
 # 3) Auth for selected CLI (key or logged in)
 case "$CLI_BIN" in
   claude)
-    if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
-      echo "OK: ANTHROPIC_API_KEY is set"
+    if [ -n "${PLAN_AN_GO_ANTHROPIC_API_KEY:-}" ] || [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+      echo "OK: Anthropic API key is set (PLAN_AN_GO_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY)"
     elif command -v claude &>/dev/null && claude auth status &>/dev/null; then
       echo "OK: claude auth status passed"
     else
-      echo "ERROR: claude auth required. Set ANTHROPIC_API_KEY in .env or run scripts/system/auth-cli.sh claude"
+      echo "ERROR: claude auth required. Set PLAN_AN_GO_ANTHROPIC_API_KEY in .env or run scripts/system/auth-cli.sh claude"
       ERRORS=$((ERRORS + 1))
     fi
     ;;
   codex)
-    if [ -n "${OPENAI_API_KEY:-}" ]; then
-      echo "OK: OPENAI_API_KEY is set"
+    if [ -n "${PLAN_AN_GO_OPENAI_API_KEY:-}" ] || [ -n "${OPENAI_API_KEY:-}" ]; then
+      echo "OK: OpenAI API key is set (PLAN_AN_GO_OPENAI_API_KEY or OPENAI_API_KEY)"
     elif command -v codex &>/dev/null; then
       if codex auth status &>/dev/null 2>&1 || true; then
         echo "OK: codex auth assumed (no status command or already logged in)"
       else
-        echo "WARN: codex login may be needed. Set OPENAI_API_KEY in .env or run scripts/system/auth-cli.sh codex"
+        echo "WARN: codex login may be needed. Set PLAN_AN_GO_OPENAI_API_KEY in .env or run scripts/system/auth-cli.sh codex"
         WARNINGS=$((WARNINGS + 1))
       fi
     fi
@@ -87,10 +88,10 @@ for cmd in codex cursor-agent jq; do
 done
 
 # 5) Slack (optional)
-USE_SLACK="${USE_SLACK:-false}"
+USE_SLACK="${PLAN_AN_GO_USE_SLACK:-${USE_SLACK:-false}}"
 if [ "$USE_SLACK" = "true" ]; then
   if [ -z "${PLAN_AN_GO_SLACK_APP_BOT_OAUTH_TOKEN:-}" ] && [ -z "${PLAN_AN_GO_SLACK_APP_ACCESS_TOKEN:-}" ]; then
-    echo "WARN: USE_SLACK=true but Slack tokens not set in .env"
+    echo "WARN: PLAN_AN_GO_USE_SLACK=true but Slack tokens not set in .env"
     WARNINGS=$((WARNINGS + 1))
   else
     echo "OK: Slack tokens appear set"

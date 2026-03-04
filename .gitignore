@@ -68,13 +68,10 @@ public/theme-constants.js
 *.tmp
 *.temp
 
-# Pipeline and temp output (progress.txt, history.log, pipeline-tail.log, mktemp files)
+# Pipeline and temp output (progress.log, history.log, pipeline-tail.log, mktemp files)
 tmp/
 !tmp/.gitkeep
-progress.txt
-# Agent-written task artifacts (when not under tmp/)
-task-*-completed.txt
-task-*-output.txt
+# Agent-written task artifacts (when not under tmp/; *.log below covers task-*-completed.log, task-*-output.log)
 
 # Git Worktrees (keep structure, ignore contents)
 .worktrees/*

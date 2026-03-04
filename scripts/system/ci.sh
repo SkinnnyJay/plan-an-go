@@ -1,9 +1,11 @@
-#!/usr/bin/env bash
-# ci.sh — Full CI gate: lint → format check → test. Clear steps, exit code = last failed step or 0.
+#!/bin/bash
+# ci.sh — Full gate for local/pre-commit: lint → format check → test.
+# GitHub CI runs only lint+format (npm run check); tests require local CLIs and run here before commit.
 # Usage: ./scripts/system/ci.sh   (run from repo root, or script cd's to repo root)
-# For CLI/CD: npm run ci  or  make ci
+# For local pre-commit: npm run ci  or  make ci
 
 set -e
+set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_ROOT"

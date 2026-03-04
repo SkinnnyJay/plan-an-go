@@ -6,6 +6,7 @@
 #        ./auth-cli.sh --logout [claude] [codex] ...     # log out from selected or all
 
 set -e
+set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ENV_FILE="$REPO_ROOT/.env"
@@ -18,6 +19,10 @@ load_env() {
   done
 }
 load_env
+# Prefer prefixed keys so CLIs see the key under standard names
+ANTHROPIC_API_KEY="${PLAN_AN_GO_ANTHROPIC_API_KEY:-$ANTHROPIC_API_KEY}"
+OPENAI_API_KEY="${PLAN_AN_GO_OPENAI_API_KEY:-$OPENAI_API_KEY}"
+export ANTHROPIC_API_KEY OPENAI_API_KEY
 
 LOGOUT_MODE=false
 WANT_ALL=false
@@ -33,7 +38,7 @@ done
 
 # If not logout and no CLIs chosen, interactive
 if [ "$LOGOUT_MODE" = false ] && [ ${#WANT_CLIS[@]} -eq 0 ]; then
-  echo "Authenticate plan-an-go CLIs. Web login is used unless an API key is set in .env."
+  echo "Authenticate plan-an-go CLIs. Web login is used unless PLAN_AN_GO_ANTHROPIC_API_KEY or PLAN_AN_GO_OPENAI_API_KEY is set in .env."
   for c in claude codex; do
     echo -n "  Authenticate $c [y/n]? "
     read -r ans
@@ -80,7 +85,7 @@ use_api_key() {
 
 auth_claude() {
   if use_api_key claude; then
-    echo "  claude: using ANTHROPIC_API_KEY from env (skip web login)."
+    echo "  claude: using API key from env (PLAN_AN_GO_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY; skip web login)."
     return 0
   fi
   if ! command -v claude &>/dev/null; then
@@ -93,7 +98,7 @@ auth_claude() {
 
 auth_codex() {
   if use_api_key codex; then
-    echo "  codex: using OPENAI_API_KEY from env (skip web login)."
+    echo "  codex: using API key from env (PLAN_AN_GO_OPENAI_API_KEY or OPENAI_API_KEY; skip web login)."
     return 0
   fi
   if ! command -v codex &>/dev/null; then

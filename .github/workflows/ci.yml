@@ -1,3 +1,4 @@
+# Lint and format only. Tests require local CLIs (claude, codex, etc.) and run on pre-commit locally.
 name: CI
 
 on:
@@ -7,7 +8,7 @@ on:
     branches: [main, master]
 
 jobs:
-  lint-format-test:
+  lint-format:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,5 +28,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run CI gate (lint → format check → test)
-        run: npm run ci
+      - name: Run lint and format check (no tests; run tests locally before commit)
+        run: npm run check
