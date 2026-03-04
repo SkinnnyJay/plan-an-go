@@ -1,4 +1,6 @@
-# Repository Guidelines
+# plan-an-go — Agent instructions
+
+This file provides context and instructions for AI coding agents (Cursor, Claude Code, Codex, and compatible tools). Plain markdown; no metadata. Use for project structure, commands, style, and testing.
 
 ## Project Structure & Module Organization
 - `scripts/` holds the Bash pipeline tooling. Key areas: `scripts/cli/` for the implementer/validator/orchestrator commands, `scripts/system/` for setup/auth/verify helpers, and `scripts/runners/` for runner utilities. The main entry is `scripts/plan-an-go`.
@@ -6,13 +8,15 @@
 - `docs/ENV-README.md` documents environment variables; `.env.sample` is the starting point for local config.
 - `examples/count/` provides a runnable example; `assets/` contains README imagery.
 - Runtime artifacts: `PLAN.md` in workspace root; progress log, history log, and temp files under `./tmp/` by default (override with `PLAN_AN_GO_TMP`).
+- Plan compliance: Plans must wrap milestones and tasks in `<work>...</work>`. Non-compliant plans trigger a warning; use `--strict` or `PLAN_AN_GO_STRICT=true` to reject them (see README).
 
 ## Build, Test, and Development Commands
 - `npm run plan-an-go`: run one implementer cycle against `PLAN.md`.
 - `npm run plan-an-go-forever -- 100 50`: run implement → validate loops continuously.
 - `npm run plan-an-go-validate -- <file>`: validate a saved implementer output.
 - `npm run plan-an-go-planner -- --prompt "..." --out ./PLAN.md`: generate a plan file.
-- `npm run plan-an-go-task-watcher -- --plan ./PLAN.md`: live task view (requires `fswatch`).
+- `npm run plan-an-go-task-watcher -- --plan ./PLAN.md`: live task view, full list (requires `fswatch`).
+- `npm run task:watcher -- --plan ./PLAN.md`: live task view, minimal (5 before/5 after incomplete); same script args.
 - `npm run setup`, `npm run install-clis`, `npm run auth-cli`, `npm run verify`: system setup and CLI checks.
 - `npm run spellcheck`: run cspell on docs and scripts; `npm run spellcheck:fix` to add unknown words to dictionary.
 - `npm run lint`: ShellCheck + spellcheck; `npm run lint:sh`: ShellCheck only; `npm run format` / `npm run format:write`: check or fix shell formatting (shfmt); `npm run check`: lint + format check.
@@ -33,8 +37,8 @@
 - Run `npm run lint` (or `make lint`) to run ShellCheck and spellcheck; run `npm run check` (or `make check`) before commits to include format checks. Use `npm run format:write` (or `make format-write`) to fix shell formatting. Requires shellcheck and shfmt (e.g. `brew install shellcheck shfmt`).
 
 ## Testing Guidelines
-- Script tests live in `__tests__/`; run with `npm test` or `npm run test:verbose`. All test output is written only to `./tmp/`. Use `__tests__/artifacts/` for PLAN/PRD and config fixtures.
-- Test file names: `filename.<type>.test.sh` (e.g. `extract-incomplete-tasks.unit.test.sh`). Pass `--verbose` to the runner to see each test’s output.
+- Script tests live in `__tests__/`; run with `npm test` (smoke) or `npm run test:full` (includes large/multi-app tests). Use `npm run test:verbose` for per-test output. All test output is written only to `./tmp/`. Use `__tests__/artifacts/` for PLAN/PRD and config fixtures.
+- Test types: smoke (default for local/pre-commit; large tests never run unless you pass `--full` or `--large`). CI runs only lint/format; tests require local CLIs. Test file names: `filename.<type>.test.sh` (e.g. `extract-incomplete-tasks.unit.test.sh`). Pass `--verbose` to the runner to see each test’s output.
 - Use `npm run verify` to ensure required CLIs and API keys are available.
 - For a smoke check, run `npm run example:count` and confirm the example completes.
 

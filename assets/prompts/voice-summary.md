@@ -1,6 +1,6 @@
 # Voice summary prompt (post-task spoken announcement)
 
-This prompt is used when TTS is enabled: after each completed task the pipeline asks an LLM to produce a short spoken summary, then speaks it via OpenAI TTS. Customize the template or set TTS_TONE / TTS_SUMMARY_PROMPT_FILE in .env.
+This prompt is used when TTS is enabled: after each completed task the pipeline asks an LLM to produce a short spoken summary, then speaks it via OpenAI TTS. Customize the template or set PLAN_AN_GO_TTS_TONE / PLAN_AN_GO_TTS_SUMMARY_PROMPT_FILE in .env.
 
 ## Placeholders (substituted before sending to the LLM)
 
@@ -10,8 +10,10 @@ This prompt is used when TTS is enabled: after each completed task the pipeline 
 - `${MILESTONE}` — milestone title if available
 - `${ITERATION}` — current iteration number
 - `${CONFIDENCE}` — validator confidence score (e.g. 8/10)
+- `${CONFIDENCE_JUSTIFICATION}` — optional 1–4 sentence blurb from validator (may be empty)
+- `${CONFIDENCE_WITH_JUSTIFICATION}` — confidence plus justification when present (e.g. "8/10 — Code exists, tests pass.")
 - `${VERDICT}` — e.g. PASSED
-- `${TONE}` — from .env TTS_TONE (e.g. professional, friendly, warm)
+- `${TONE}` — from .env PLAN_AN_GO_TTS_TONE (e.g. professional, friendly, warm)
 
 The following are filled from implementer/validator output (truncated):
 
@@ -39,7 +41,7 @@ Reply with ONLY the announcement text, nothing else. No quotes, no preamble.
 **Task:** ${TASK_ID} — ${TASK_DESCRIPTION}
 **Milestone:** ${MILESTONE}
 **Iteration:** ${ITERATION}
-**Validator:** ${VERDICT}, confidence ${CONFIDENCE}
+**Validator:** ${VERDICT}, confidence ${CONFIDENCE_WITH_JUSTIFICATION}
 
 **Implementer summary:**
 IMPLEMENTER_SUMMARY

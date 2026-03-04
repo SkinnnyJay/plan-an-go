@@ -4,6 +4,15 @@
 
 Automated **implement → validate** pipeline driven by a plan file (e.g. `PLAN.md`). An orchestrator runs an Implementation Agent and a Validation Agent in a loop until all tasks are done or you stop it.
 
+## Features
+
+- **Implement → validate loop** — One agent implements tasks from your plan; another validates. The loop runs until every task is done or you stop it.
+- **Multiple CLIs** — Use **Claude**, **Codex**, or **Cursor**; set your default in `.env` or pass `--cli` per run.
+- **Plan from a prompt or PRD** — Generate `PLAN.md` from a short prompt or from a PRD; generate PRDs from prompts. Templates use `<work>...</work>` so only real tasks are parsed.
+- **Concurrent agents** — Run several implementers in parallel with `--concurrency N`; each agent gets its own task. Optional live **task watcher** (full or minimal list).
+- **Optional Slack** — Post progress to a Slack channel (or thread); off by default.
+- **Strict mode** — Require plans to wrap milestones and tasks in `<work>...</work>` with `--strict` so prompt/example text is never counted as tasks.
+
 ## Install
 
 - **From npm (global):** `npm install -g plan-an-go` then run `plan-an-go` from any directory. Copy `.env.sample` from the package (e.g. `$(npm root -g)/plan-an-go/.env.sample`) to a location you’ll use for config, rename to `.env`, and set `PLAN_AN_GO_ROOT` to your project directory (or pass `--root /path/to/project` when you run commands).
@@ -17,14 +26,50 @@ Before running the pipeline, install the CLI you’ll use and authenticate it:
 - **One-shot:** From repo root, `npm run setup` (interactive install + auth + verify). To install everything: `npm run setup -- all`.
 - **Step by step:**
   - **Install CLIs:** `npm run install-clis` (interactive) or `npm run install-clis -- all`, or list names: `claude`, `codex`, `jq`, `fswatch`, `cursor-agent` (check-only).
-  - **Authenticate:** `npm run auth-cli` (interactive) or `npm run auth-cli -- all`. Uses web login unless you set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`. Log out: `npm run auth-cli -- --logout`.
+  - **Authenticate:** `npm run auth-cli` (interactive) or `npm run auth-cli -- all`. Uses web login unless you set `PLAN_AN_GO_ANTHROPIC_API_KEY` or `PLAN_AN_GO_OPENAI_API_KEY` in `.env`. Log out: `npm run auth-cli -- --logout`.
   - **Verify:** `npm run verify` (fails on missing CLIs/keys); `npm run verify -- --force` to warn but exit 0.
+
+**Onboarding:** Run `npm run plan-an-go-onboard` (or `plan-an-go onboard`) for an interactive menu: review or set key variables (from `.env` or defaults), then choose an action (setup, run, forever, prd, planner, wizard, validate, task-watcher, reset, or help).
 
 **Tip:** Setup is smoother if you already have the CLI you want to use installed and logged in. Set the default CLI in `.env` with `PLAN_AN_GO_CLI` (e.g. `claude`, `codex`, `cursor-agent`) so you always get the same one without passing `--cli` each time.
 
 **Platforms:** `install-clis` supports **macOS** (darwin), **Linux**, and **Windows** (Git Bash / MSYS2 / Cygwin) via `scripts/system/install-clis-<platform>.sh`. A shared `scripts/system/platform.sh` provides `get_platform`, `stat_mtime`, and `install_hint` for other scripts.
 
 See `scripts/system/README.md` for details.
+
+## First-time use
+
+If you’re new to plan-an-go, follow this path to confirm everything works:
+
+1. **Install** (from source): clone the repo, then from repo root:
+   ```bash
+   cp .env.sample .env
+   ```
+   Edit `.env` if you want (e.g. set `PLAN_AN_GO_CLI=claude` or `codex` or `cursor-agent`).
+
+2. **Setup CLIs and auth:** run the interactive setup once:
+   ```bash
+   npm run setup
+   ```
+   Pick the CLI(s) to install and authenticate. Or step-by-step: `npm run install-clis`, then `npm run auth-cli`.
+
+3. **Verify:** ensure your chosen CLI and keys are present:
+   ```bash
+   npm run verify
+   ```
+
+4. **Run the count example** — minimal plan that writes 1–10 to a log file. From repo root:
+   ```bash
+   npm run example:count
+   ```
+   You’ll see the **log file path** at the top, then streamed output. When it finishes, your setup is working.
+
+5. **Optional:** run the onboarding menu to review env and run other commands:
+   ```bash
+   npm run plan-an-go-onboard
+   ```
+
+After that, use [Quick start](#quick-start) for your own `PLAN.md`, or try one of the [examples](#examples) (e.g. todo, journal) — each has its own README with exact commands.
 
 ## Quick start
 
@@ -34,6 +79,16 @@ See `scripts/system/README.md` for details.
    - One iteration: `npm run plan-an-go`
    - Continuous loop: `npm run plan-an-go-forever`
    - Validate only: `npm run plan-an-go-validate -- <implementer_output_file>`
+
+### Plan compliance (`<work>` and `--strict`)
+
+Plans should wrap **all milestones and task lines** in one or more `<work>...</work>` blocks. Only those blocks are parsed for tasks; prompt text or examples elsewhere are ignored. A plan may have multiple `<work>...</work>` chunks; all are combined. The planner and templates emit this format.
+
+- **Without `<work>`:** Scripts still run but may match prompt/example lines as tasks; you’ll see a **warning**.
+- **`--strict`:** Require a compliant plan. Use with `forever`, `run`, or `plan-check`. Non-compliant plans exit with an error.
+  - `npm run plan-an-go-forever -- --out-dir ./example/todo --strict --no-slack`
+  - `./scripts/cli/plan-an-go-plan-check.sh --strict PLAN.md` (or `make -f MAKEFILE plan-check FILE=PLAN.md STRICT=1`)
+- **Env:** `PLAN_AN_GO_STRICT=true` has the same effect as `--strict` for the implementer.
 
 ## Full flow walkthrough
 
@@ -91,10 +146,11 @@ npm run plan-an-go-forever -- 100 50 \
 - **Implementer** reads the plan, picks an incomplete task (`[ ]`), implements it, and updates the plan (e.g. marks it `[x]`).
 - **Validator** checks the work and the plan; the loop continues until all tasks are done or you stop it.
 
-Optional: in another terminal, run the task watcher to see progress:
+Optional: in another terminal, run the task watcher to see progress (full list or minimal with 5 before/5 after incomplete):
 
 ```bash
 npm run plan-an-go-task-watcher -- --plan ./my-todo-app/PLAN.md
+npm run task:watcher -- --plan ./my-todo-app/PLAN.md
 ```
 
 ### 4. Optional: reset and re-run
@@ -115,15 +171,20 @@ When the loop finishes, your app has a plan-driven implementation and all plan t
 
 ## Commands
 
+**Full argument tables, examples, and when to use each command:** [**docs/COMMANDS.md**](docs/COMMANDS.md). That doc also explains where output goes with/without `--out-dir`, how to override the plan with `--plan`, and how to generate a PLAN from a PRD in a folder.
+
 | Command | Description |
 |--------|-------------|
 | `npm run plan-an-go` | Run one implementer cycle (one task from plan). |
 | `npm run plan-an-go-forever` | Run implementer → validator in a loop (default 100 parent × 50 child). |
 | `npm run plan-an-go-validate -- <file>` | Run validator on a saved implementer output file. |
-| `npm run plan-an-go-task-watcher` | Live task list; pass `--plan PATH` etc. after `--`. |
+| `npm run plan-an-go-task-watcher` | Live task list (full); pass `--plan PATH` etc. after `--`. |
+| `npm run plan-an-go-task-watcher-minimal` | Live task list (minimal: 5 tasks before/after incomplete); same args after `--`. |
+| `npm run task:watcher` | Same as `plan-an-go-task-watcher-minimal`; pass `--plan PATH` etc. after `--`. |
 | `npm run plan-an-go-planner` | Generate a plan from a prompt or PRD; pass `--prompt`, `--out`, `--cli` after `--`. |
 | `npm run plan-an-go-prd` | Generate a PRD from a prompt or input doc; pass `--prompt`, `--in`, `--out`, `--cli` after `--`. |
 | `npm run reset [-- --plan FILE] [-- --milestone N] [-- --force]` | Reset completed tasks `[x]` → `[ ]` in a plan; optional milestone; default backup is `<plan>.bak`. |
+| `npm run plan-an-go-onboard` | Interactive onboarding: optional env review (from `.env`/defaults), then menu to run setup, run, forever, prd, planner, wizard, validate, task-watcher, reset, or help. |
 | `npm run example:count` | Run the [count example](#example-count) — prints log path at top, then streams output. |
 | `npm run setup` | One-shot system setup (install CLIs + auth + verify). |
 | `npm run install-clis [-- all]` | Install CLIs (interactive or `all`). |
@@ -134,102 +195,23 @@ When the loop finishes, your app has a plan-driven implementation and all plan t
 | `npm run format` | Check shell script formatting (shfmt; requires `shfmt` installed). |
 | `npm run format:write` | Fix shell script formatting. |
 | `npm run check` | Lint + format check (run before commits). |
-| `npm run ci` / `npm run build` | Full CI gate: lint → format check → test. Single command for CLI/CD; exit code = failed step or 0. |
+| `npm run ci` / `npm run build` | Full gate for local pre-commit: lint → format check → test. GitHub CI runs only lint+format (tests require local CLIs). |
 
-**Linting and formatting:** Install [ShellCheck](https://github.com/koalaman/shellcheck) and [shfmt](https://github.com/mvdan/sh) (e.g. `brew install shellcheck shfmt` on macOS) to run `npm run lint` and `npm run format`. The repo uses `.shellcheckrc` and shfmt with `-i 2 -ci`. Use `make lint`, `make format`, `make format-write`, or `make check` for the same via Make. For CI/CD, run `npm run ci` or `make ci` (alias: `make build`) to run the full gate and get a single pass/fail exit code.
+**Linting and formatting:** Install [ShellCheck](https://github.com/koalaman/shellcheck) and [shfmt](https://github.com/mvdan/sh) (e.g. `brew install shellcheck shfmt` on macOS) to run `npm run lint` and `npm run format`. The repo uses `.shellcheckrc` and shfmt with `-i 2 -ci`. Use `make lint`, `make format`, `make format-write`, or `make check` for the same via Make. GitHub CI runs only lint+format (`npm run check`). Run `npm run ci` or `make ci` (alias: `make build`) locally before commit to run the full gate including tests (requires local CLIs).
 
-## Script arguments
+## Script arguments (quick reference)
 
-All scripts are in `scripts/cli/`. Run from **repo root** via npm (pass extra args after `--`).
+All scripts run from **repo root** via npm; pass extra args after `--`. For **full argument tables, examples, and “when to use”** for each command, see **[docs/COMMANDS.md](docs/COMMANDS.md)**. Summary:
 
-### plan-an-go-forever (orchestrator)
-
-```text
-npm run plan-an-go-forever -- [parent_loops] [child_loops] [options]
-```
-
-| Argument | Description |
-|----------|-------------|
-| `parent_loops` | Number of orchestrator iterations (default: 100). |
-| `child_loops` | Max LLM calls per agent per iteration (default: 50). |
-| `--no-validate` | Skip validator; implementer only. |
-| `--no-threads` | Post Slack messages to channel (no threads). |
-| `--stream` | Stream LLM output in real time (gray background). |
-| `--no-slack` | Disable Slack (default). |
-| `--slack-enable` | Enable Slack (opt-in; requires Slack tokens in `.env`; if unset or post fails, we warn and continue). |
-| `--tail` | Append iteration output to `pipeline-tail.log`. |
-| `--tail=FILE` | Append iteration output to FILE (e.g. `tail -f FILE` in another terminal). |
-| `--workspace DIR` | Run from DIR (default: repo root). |
-| `--plan FILE` | Plan file path (default: `PLAN.md`; relative to workspace). |
-| `--out-dir DIR` | Same as workspace for this run: implement in DIR; plan at `DIR/PLAN.md`. Dir created if missing. Use unique dirs per project (e.g. `./example/todo`, `./example/journal`). |
-| `--clean-after` | After exit, remove workspace contents. **Requires `--force`**; only when workspace is a subdir of repo. |
-| `--force` | Required with `--clean-after` to confirm cleanup. |
-| `--cli NAME` | CLI: `claude`, `codex`, or `cursor-agent` (default: from `PLAN_AN_GO_CLI` or `claude`). |
-| `--cli-flags "FLAGS"` | Extra flags passed to the CLI (quoted string). |
-| `--concurrency N` | Run N implementer agents in parallel; each picks one of the first N incomplete tasks. Tasks are marked `[IN_PROGRESS]:[AGENT_01]` … `[AGENT_N]` in the plan. Task watcher shows a yellow ● and agent id for each in-progress task (default: 1). |
-
-### plan-an-go (implementer)
-
-```text
-npm run plan-an-go -- [options]
-```
-
-| Argument | Description |
-|----------|-------------|
-| `--workspace DIR` | Run from DIR. |
-| `--plan FILE` | Plan file (or set `PLAN_FILE`). |
-| `--cli NAME` | `claude`, `codex`, or `cursor-agent`. |
-| `--cli-flags "FLAGS"` | Extra CLI flags. |
-
-### plan-an-go-validate (validator)
-
-```text
-npm run plan-an-go-validate -- <implementer_output_file> [options]
-```
-
-| Argument | Description |
-|----------|-------------|
-| `implementer_output_file` | Path to saved implementer stdout (required). |
-| `--workspace DIR` | Run from DIR. |
-| `--cli` / `--cli-flags` | Same as implementer. |
-
-### plan-an-go-task-watcher (live task list)
-
-```text
-npm run plan-an-go-task-watcher -- [options]
-```
-
-| Argument | Description |
-|----------|-------------|
-| `--plan PATH` | Plan file (default: `./PLAN.md`). |
-| `--once` | Single run, no file watch. |
-| `--width N` | Terminal width for truncation. |
-| `--max-rows N` | Max task rows. |
-| `--ids-only` | Show only ID and checkmark. |
-| `--minimal` | Show context around incomplete tasks only. |
-| `--no-progress` | Hide progress bar. |
-| `--no-color` | Disable color. |
-| `--poll N` | fswatch poll interval (seconds). |
-
-In-progress tasks (lines containing `[IN_PROGRESS]` or `[IN_PROGRESS]:[AGENT_NN]`) are shown with a **yellow ●**; when using `--concurrency N`, the agent id (e.g. `AGENT_01`) is shown so you can see which agent is handling each task.
-
-Requires `fswatch` for watch mode (`brew install fswatch`).
-
-### plan-an-go-prd (PRD generator)
-
-Generates a structured Product Requirements Document (PRD) from a prompt or an input file. Default output is `./PRD.md`; use `--out` to override. The PRD can be passed to the planner to produce a PLAN.
-
-```text
-npm run plan-an-go-prd -- --prompt="Describe the product or feature"
-npm run plan-an-go-prd -- --in notes.md [--out ./PRD.md]
-```
-
-| Argument | Description |
-|----------|-------------|
-| `--prompt="..."` | Use this string as input (product/feature description). |
-| `--in PATH` | Input file to expand or structure as a PRD. |
-| `--out PATH` | Output file (default: `./PRD.md`). |
-| `--cli` / `--cli-flags` | Same as planner/implementer. |
+- **plan-an-go-forever** — `[parent_loops] [child_loops]` plus `--out-dir`, `--plan`, `--no-slack`, `--concurrency`, `--stream`, `--tail`, etc.
+- **plan-an-go** — One implementer cycle; `--out-dir`, `--plan`, `--cli`.
+- **plan-an-go-validate** — `npm run plan-an-go-validate -- <implementer_output_file>`; optional `--workspace`, `--cli`.
+- **plan-an-go-planner** — `--in`, `--out`, `--out-dir`, `--prompt`, `--task-detail L|M|H|XH`; generates PLAN from PRD or prompt.
+- **plan-an-go-prd** — `--prompt`, `--in`, `--out`, `--out-dir`; generates PRD from prompt or doc.
+- **plan-an-go-prd-from-plan** — `--plan`, `--prd`/`--out`, `--out-dir`; generates or fixes PRD from PLAN.
+- **plan-an-go-task-watcher** / **task:watcher** — `--plan`, `--minimal`, `--once`, etc.; requires `fswatch`.
+- **plan-an-go-plan-check** — `./scripts/cli/plan-an-go-plan-check.sh [--strict] [plan_file]`; plan health check (counts, `<work>` compliance). See [docs/COMMANDS.md](docs/COMMANDS.md).
+- **reset** — `--plan`, `--milestone N`, `--force`; resets `[x]` → `[ ]` in plan (creates `.bak` by default).
 
 ## Supported CLIs and models
 
@@ -257,57 +239,47 @@ Full reference (all keys, defaults, examples): **[docs/ENV-README.md](docs/ENV-R
 | `PLAN_AN_GO_CLI_FLAGS` | Extra flags passed to the CLI (shared). Use `PLAN_AN_GO_CLAUDE_FLAGS` / `PLAN_AN_GO_CODEX_FLAGS` for per-CLI flags when unset. |
 | `PLAN_AN_GO_CLAUDE_MODEL` | Claude model ID (see [Supported CLIs and models](#supported-clis-and-models)). |
 | `PLAN_AN_GO_CODEX_MODEL` | Codex model ID (optional). |
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | Optional; if set, auth uses the key instead of web login. |
-| `USE_SLACK` | Slack is off by default; set to `true` or use `--slack-enable` to enable. If tokens are unset or a post fails, we warn and continue (no exit). |
+| `PLAN_AN_GO_ANTHROPIC_API_KEY` / `PLAN_AN_GO_OPENAI_API_KEY` | Optional; if set, auth uses the key instead of web login. |
+| `PLAN_AN_GO_USE_SLACK` | Slack is off by default; set to `true` or use `--slack-enable` to enable. If tokens are unset or a post fails, we warn and continue (no exit). |
 | `PLAN_AN_GO_ROOT` | Default operating/root path for the `scripts/plan-an-go` entry script. If unset, root is the directory containing `scripts/` or `--root` on the CLI. |
-| `PLAN_AN_GO_SLACK_*` | Slack app tokens; see [docs/ENV-README.md](docs/ENV-README.md) and `.env.sample`. |
+| `PLAN_AN_GO_SLACK_*` | Slack app tokens; see [docs/ENV-README.md](docs/ENV-README.md) (includes [Setting up Slack for pipeline updates](docs/ENV-README.md#setting-up-slack-for-pipeline-updates)) and `.env.sample`. |
 
 ## Examples
 
-**npm (from repo root):**
+Each example has its own README with step-by-step commands. Run from **repo root** unless noted.
+
+| Example | Description | How to run |
+|--------|-------------|------------|
+| **[count](examples/count/README.md)** | Minimal: writes 1–10 to a log file. Use to **verify setup** after first-time install. | `npm run example:count` or `./examples/count/run.sh` |
+| **[todo](examples/todo/README.md)** | Todo list web app (React, Next.js, TypeScript, Prisma, SQLite, shadcn/ui). PRD → plan → implement loop. | `./examples/todo/run.sh` or planner + forever with `--out-dir ./examples/todo` |
+| **[journal](examples/journal/README.md)** | Personal journal app (entries, tags, search, markdown, shadcn/ui). | `./examples/journal/run.sh` or planner + forever with `--out-dir ./examples/journal` |
+| **[vacation-airbnb](examples/vacation-airbnb/README.md)** | Vacation-planning TODO app with Airbnb integration. | `./examples/vacation-airbnb/run.sh` or planner + forever with `--out-dir ./examples/vacation-airbnb` |
+| **[youtube-clone](examples/youtube-clone/README.md)** | YouTube-style app (search, embed playback, watch later, playlists). | `./examples/youtube-clone/run.sh` or planner + forever with `--out-dir ./examples/youtube-clone` |
+
+**Count** is the only example that doesn’t need a PRD or generated plan; its `PLAN.md` is checked in. The others use a PRD and generate `PLAN.md` via the planner (or the example’s `run.sh` does that for you). See each example’s README for details.
+
+**Command snippets (from repo root; pass extra args after `--`):**
 
 ```bash
+# One run, loop, validate, count example
 npm run plan-an-go
 npm run plan-an-go-forever
 npm run plan-an-go-forever -- --concurrency 3
 npm run plan-an-go-validate -- <implementer_output_file>
 npm run example:count
-npm run check
-```
 
-**More examples (from repo root; pass args after `--`):**
-
-```bash
+# Forever with options
 npm run plan-an-go-forever -- 100 10 --plan PLAN.md --cli codex --no-slack --tail
-npm run plan-an-go-forever -- 100 10 --plan PLAN.md --cli claude --no-slack
-npm run plan-an-go-forever -- 5 25 --workspace ./examples/count --plan PLAN.md --no-slack
 npm run plan-an-go-forever -- 50 50 --concurrency 3 --no-slack
 npm run plan-an-go-task-watcher -- --plan PLAN.md
-npm run plan-an-go-validate -- /path/to/implementer-output.txt --workspace . --cli codex
-```
-
-**Concurrency (multiple agents in parallel):**
-
-```bash
-npm run plan-an-go-forever -- --concurrency 3 --no-slack
-npm run plan-an-go-forever -- 100 50 --concurrency 2 --plan PLAN.md --cli claude
+npm run task:watcher -- --plan PLAN.md
 ```
 
 Run the task watcher in another terminal to see in-progress tasks with a yellow ● and agent id (e.g. `AGENT_01`, `AGENT_02`).
 
 ### Example: count
 
-The [examples/count](examples/count) folder contains a minimal plan that writes the numbers 1–10 to `./test.txt` in that folder. Use it to verify your setup.
-
-```bash
-npm run example:count
-```
-
-- Prints the **log file path** at the top (e.g. `examples/count/run-20260303-120000.log`).
-- Streams pipeline output to the terminal and appends it to that file.
-- Uses 5 parent loops, 25 child loops, `--no-slack`, and runs with `--workspace examples/count` and `--plan PLAN.md`.
-
-See [examples/count/README.md](examples/count/README.md) for details.
+The [count](examples/count/README.md) example is a minimal plan that writes 1–10 to `./test.log`. Use it to verify setup: `npm run example:count`. It prints the log path at the top, then streams output. See [examples/count/README.md](examples/count/README.md) for details.
 
 ## Project layout
 

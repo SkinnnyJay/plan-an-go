@@ -1,12 +1,14 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Project-level guidance for [Claude Code](https://docs.anthropic.com/en/docs/claude-code/settings) (claude.ai/code). Claude Code loads this file at the start of sessions. File-type rules and skills live in `.claude/rules/` and `.claude/skills/`. See **AGENTS.md** for repository guidelines, testing, and coding style.
 
-## What this project is
+## Project overview
 
-plan-an-go is a **plan-driven CLI orchestrator** that automates an implement → validate loop. It reads a plan file (`PLAN.md`) with milestones and checkbox tasks, then runs LLM-powered agents (Claude, Codex, or Cursor) in a loop until all tasks are marked complete.
+plan-an-go is a **plan-driven CLI orchestrator** (Bash, Node for npm scripts) that automates an implement → validate loop. It reads a plan file (`PLAN.md`) with milestones and checkbox tasks, then runs LLM-powered agents (Claude, Codex, or Cursor) in a loop until all tasks are marked complete.
 
 ## Commands
+
+Full argument tables, examples, and when to use each: **docs/COMMANDS.md**.
 
 ```bash
 # Run one implementer cycle
@@ -25,11 +27,15 @@ npm run plan-an-go-validate -- <implementer_output_file>
 # Generate a plan from a prompt
 npm run plan-an-go-planner -- --prompt="Build a todo app" --out ./PLAN.md
 
-# Watch task progress live
+# Watch task progress live (full list or minimal: 5 before/5 after incomplete)
 npm run plan-an-go-task-watcher -- --plan PLAN.md
+npm run task:watcher -- --plan PLAN.md
 
 # Reset completed tasks back to incomplete
 npm run reset -- --plan PLAN.md
+
+# Interactive onboarding (menu + optional env review, then run a command)
+npm run plan-an-go-onboard
 
 # Run the count example (verifies setup)
 npm run example:count
@@ -78,7 +84,7 @@ scripts/plan-an-go          (entry point: resolves root, routes subcommands via 
 
 ## Plan file format
 
-Plans use this structure (parsers depend on exact formatting):
+Plans **must** wrap all milestones and tasks in one or more `<work>...</work>` blocks (compliant format); multiple chunks are supported. Only that block is parsed; prompt or example text outside it is ignored. Non-compliant plans trigger a warning; use `--strict` (or `PLAN_AN_GO_STRICT=true`) to reject them.
 
 ```markdown
 # PLAN — Title
@@ -89,6 +95,7 @@ Plans use this structure (parsers depend on exact formatting):
 
 ## Milestones and tasks
 
+<work>
 **M1:0 - Milestone title**
 [ ] - M1:1- Task description
 [ ] - M1:2- Another task
@@ -96,6 +103,7 @@ Plans use this structure (parsers depend on exact formatting):
 
 **M2:0 - Second milestone**
 [ ] - M2:1- Task description
+</work>
 
 ## 100% success criteria
 - All tasks in this PLAN are marked [x].
@@ -106,7 +114,9 @@ Key parsing rules:
 - Milestone headers: `**M<n>:0 - Title**`
 - Task lines: `[ ] - M<n>:<id>- Description` (incomplete) or `[x] - M<n>:<id>- Description` (complete)
 - A dash must follow the task ID (e.g. `M1:1-`) for parsers to detect the format
+- **Dependencies (multi-agent):** In the task description you can add `(after M<n>:<id>)`, `(requires M<n>:<id>)`, or `(when M<n>:<id> complete)`. The orchestrator assigns only tasks whose dependency is already [x]; it skips ineligible tasks and picks the next so agents don't block on unfinished prerequisites.
 - `[IN_PROGRESS]` or `[IN_PROGRESS]:[AGENT_NN]` is appended by the orchestrator; when a task is marked complete, `[IN_PROGRESS]:[AGENT_NN]` is converted to `[AGENT_NN]` so the plan keeps which agent completed it
+- **`<work>...</work>`:** Required for compliant plans. Only lines between these tags are used for task counting, marking, and implementer prompts. Use `--strict` to refuse non-compliant plans.
 
 ## Key environment variables
 
@@ -119,7 +129,7 @@ Key parsing rules:
 | `PLAN_AN_GO_CLI_FLAGS` | Shared extra CLI flags | (none) |
 | `PLAN_AN_GO_CLAUDE_FLAGS` | Claude-specific flags | (none) |
 | `PLAN_AN_GO_CODEX_FLAGS` | Codex-specific flags | (none) |
-| `USE_SLACK` | Enable Slack posting | `true` |
+| `PLAN_AN_GO_USE_SLACK` | Enable Slack posting | `false` |
 | `PLAN_AN_GO_ROOT` | Override operating root | (repo root) |
 | `PLAN_AN_GO_TMP` | Directory for progress log, history log, tail log, temp files | `./tmp` |
 

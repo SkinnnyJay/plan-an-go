@@ -32,13 +32,17 @@ REQUIREMENTS
 DETAIL-ORIENTED TASKS & SUCCESS CRITERIA (required)
 ═══════════════════════════════════════════════════════════════════════════════
 - **Break work into granular tasks.** Each task should be one concrete, actionable step. Prefer more small tasks over fewer large ones. Use subtasks (e.g. M1:2.1, M1:2.2) when a logical step has multiple parts. Avoid vague tasks like "Implement feature X"; instead list specific steps (e.g. add file, add route, add test).
-- **Task descriptions must be specific.** Include file paths, artifact names, or measurable behavior where relevant (e.g. "Add GET /users to src/routes/users.ts", "Write numbers 1–10 to ./test.txt, one per line"). An implementer should know exactly what to do from the task line alone.
-- **100% success criteria are mandatory and must be testable.** The "100% success criteria" section must list conditions that can be verified (e.g. "File ./test.txt exists and has exactly 10 lines", "npm run test passes", "All tasks in this PLAN are marked [x]"). Every major deliverable or milestone should have at least one corresponding criterion. Criteria must be concrete enough for a validator or script to check.
+- **Task descriptions must be specific.** Include file paths, artifact names, or measurable behavior where relevant (e.g. "Add GET /users to src/routes/users.ts", "Write numbers 1–10 to ./test.log, one per line"). An implementer should know exactly what to do from the task line alone. Do not output the literal placeholder `<Task description>` or `<Subtask>` — every task line must have a real, concrete description.
+- **Concurrency-friendly plans (optional; recommended when using multiple agents):** If the plan may be run with `--concurrency N` (N > 1), either (a) order tasks so independent work appears in parallel-friendly batches, or (b) add dependency hints in task descriptions: `(after M<n>:<id>)`, `(requires M<n>:<id>)`, or `(when M<n>:<id> complete)`. Example: `[ ] - M2:1- Add API route for users (after M1:2)`. The orchestrator skips a task if its dependency is not yet [x] and assigns the next eligible task to an agent.
+- **100% success criteria are mandatory and must be testable.** The "100% success criteria" section must list conditions that can be verified (e.g. "File ./test.log exists and has exactly 10 lines", "npm run test passes", "All tasks in this PLAN are marked [x]"). Every major deliverable or milestone should have at least one corresponding criterion. Criteria must be concrete enough for a validator or script to check.
 - **Scope in Top info must be explicit.** State what is in scope and what is out of scope in 1–3 clear sentences so there is no ambiguity about boundaries.
+- **If the input PRD specifies a "Data strategy / mock data" or similar:** Include explicit milestones/tasks for creating mock data (multiple `.json` or `.jsonl` files, e.g. under `mock/`) and wiring the app to use them for speed (e.g. env flag, seed script, or API fallback). Treat mock data as the default/fast path; DB or live APIs as optional or secondary. Task descriptions should name the mock files and the condition under which the app uses them (e.g. "Create mock/todos.json and seed script that loads it when USE_MOCK_DATA=true").
 
 ═══════════════════════════════════════════════════════════════════════════════
 PLAN FORMAT (match this structure)
 ═══════════════════════════════════════════════════════════════════════════════
+
+- **CRITICAL: Wrap all milestones and tasks in one or more <work>...</work> blocks.** Downstream scripts parse only the content between these tags so that instructions or prose elsewhere (e.g. "use [ ] for tasks") are never mistaken for task lines. A plan may have multiple <work>...</work> chunks; all are combined. Put nothing else inside each <work> except milestone headers and task lines.
 
 # PLAN — <Title>
 
@@ -53,6 +57,9 @@ PLAN FORMAT (match this structure)
 
 ## Milestones and tasks
 
+Use real milestone titles and real task descriptions. Do NOT output literal placeholders like `<Task description>` or `<Subtask>` — every task line must have a concrete, actionable description. The entire block below must be wrapped in <work> and </work>.
+
+<work>
 **M1:0 - <Milestone 1 name>**
 [ ] - M1:1- <Task description>
 [ ] - M1:2- <Task description>
@@ -61,6 +68,7 @@ PLAN FORMAT (match this structure)
 **M2:0 - <Milestone 2 name>**
 [ ] - M2:1- <Task description>
 ...
+</work>
 
 ## 100% success criteria
 - List only testable, verifiable conditions (e.g. file exists, command passes, all tasks [x]).
@@ -73,5 +81,5 @@ PLAN FORMAT (match this structure)
 (optional)
 
 ═══════════════════════════════════════════════════════════════════════════════
-Use the document between BEGIN INPUT DOCUMENT and END INPUT DOCUMENT (at the end of this message). Output the complete PLAN markdown and nothing else. If it is already a plan, output that plan in full with all milestones and tasks preserved. Your response must start with "# PLAN —" and include every **M<n>:0** and every task line. No other text before or after the plan.
+Use the document between BEGIN INPUT DOCUMENT and END INPUT DOCUMENT (at the end of this message). Output the complete PLAN markdown and nothing else. If it is already a plan, output that plan in full with all milestones and tasks preserved. Your response must start with "# PLAN —" and include every **M<n>:0** and every task line. All milestones and task lines must appear inside one or more <work>...</work> blocks. No other text before or after the plan.
 ═══════════════════════════════════════════════════════════════════════════════
