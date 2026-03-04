@@ -5,7 +5,7 @@
 ---
 
 **M1:0 - First milestone**
-[ ] - M1:1- Task one [IN_PROGRESS]:[AGENT_01]
+[x] - M1:1- Task one [AGENT_01]
 [x] - M1:2- Task two [AGENT_02]
 [ ] - M1:3- Task three
 
