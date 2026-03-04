@@ -51,7 +51,7 @@
 [x] - M1:8- Write the number 7 on line 7
 [x] - M1:9- Write the number 8 on line 8
 [x] - M1:10- Write the number 9 on line 9
-[ ] - M1:11- Write the number 10 on line 10
+[x] - M1:11- Write the number 10 on line 10
 
 **M2:0 - Validate output**
 [ ] - M2:1- Confirm ./test.txt exists and has exactly 10 lines
