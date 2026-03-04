@@ -1,6 +1,7 @@
 # Progress Log
 
 ## 2026-03-04
+- M1:1 - Task one: RE-COMPLETED by AGENT_01 (task-one-output.txt created)
 - M1:3 - Task three: COMPLETED by AGENT_03 (task-three-completed.txt created)
 - M1:2 - Task two: COMPLETED by AGENT_02 (commit bbfe781)
-- M1:1 - Task one: COMPLETED by AGENT_01 (./tmp/task-one-completed.txt created)
+- M1:1 - Task one: COMPLETED by AGENT_01 (commit ae08e96)
