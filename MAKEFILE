@@ -5,11 +5,13 @@
 	run run-claude run-codex run-cursor-agent \
 	run-forever run-forever-claude run-forever-codex run-forever-cursor-agent \
 	validate validate-claude validate-codex validate-cursor-agent \
+	planner prd prd-from-plan reset split example-count \
 	file-watch task-watcher plan-check slack-update \
-	setup install-clis auth-cli
+	lint format format-write check ci build \
+	setup install-clis auth-cli verify
 
 help:
-	@echo "plan-an-go targets:"
+	@echo "plan-an-go targets (or use npm run from repo root):"
 	@echo ""
 	@echo "Core"
 	@echo "  make run                         — One implementer cycle (scripts/cli/plan-an-go.sh)"
@@ -27,11 +29,28 @@ help:
 	@echo "  make validate-codex FILE=<path>  — Validate output (Codex)"
 	@echo "  make validate-cursor-agent FILE=<path> — Validate output (Cursor agent)"
 	@echo ""
+	@echo "Planning & reset"
+	@echo "  make planner [PROMPT='...'] [OUT=./PLAN.md] [IN=<path>] — Generate PLAN.md (scripts/cli/plan-an-go-planner.sh)"
+	@echo "  make prd [PROMPT='...'] [OUT=./PRD.md] [IN=<path>]     — Generate PRD.md (scripts/cli/plan-an-go-prd.sh)"
+	@echo "  make prd-from-plan [PLAN=./PLAN.md] [PRD=./PRD.md]     — Validate/fix/generate PRD from PLAN (plan-an-go-prd-from-plan.sh)"
+	@echo "  make reset [PLAN=./PLAN.md]      — Reset completed tasks to incomplete (scripts/cli/plan-an-go-reset.sh)"
+	@echo "  make split                       — Task watcher + forever in split terminal (scripts/cli/plan-an-go-split-run.sh)"
+	@echo "  make example-count               — Run count example (examples/count/run.sh)"
+	@echo ""
 	@echo "Tools"
 	@echo "  make file-watch                  — Watch file changes (scripts/cli/plan-an-go-file-watch.sh)"
-	@echo "  make task-watcher                — Live PRD task list (scripts/cli/plan-an-go-task-watcher.sh)"
-	@echo "  make plan-check FILE=<path>      — Check PLAN/PRD formatting (scripts/cli/plan-an-go-plan-check.sh)"
+	@echo "  make task-watcher                — Live plan task list (scripts/cli/plan-an-go-task-watcher.sh)"
+	@echo "  make plan-check FILE=<path>      — Check plan formatting (scripts/cli/plan-an-go-plan-check.sh)"
 	@echo "  make slack-update MSG='<text>' [THREAD=<ts>] — Post Slack update"
+	@echo ""
+	@echo "Lint & format"
+	@echo "  make lint                        — ShellCheck + spellcheck (npm run lint)"
+	@echo "  make format                      — Check shell formatting (shfmt -d)"
+	@echo "  make format-write                — Fix shell formatting (shfmt -w)"
+	@echo "  make check                       — Lint + format check (npm run check)"
+	@echo ""
+	@echo "CI / build (for CLI/CD)"
+	@echo "  make ci   |  make build          — Full gate: lint → format → test (exit code = failed step or 0)"
 	@echo ""
 	@echo "Examples (from runners)"
 	@echo "  ./scripts/cli/plan-an-go-forever.sh"
@@ -45,9 +64,10 @@ help:
 	@echo "  ./scripts/cli/plan-an-go-forever.sh --cli cursor-agent"
 	@echo ""
 	@echo "System"
-	@echo "  make setup                       — Run system setup (scripts/system/setup.sh)"
-	@echo "  make install-clis                — Install CLIs (scripts/system/install-clis.sh)"
-	@echo "  make auth-cli                    — Authenticate CLIs (scripts/system/auth-cli.sh)"
+	@echo "  make setup                       — Run system setup (npm run setup)"
+	@echo "  make install-clis                — Install CLIs (npm run install-clis)"
+	@echo "  make auth-cli                    — Authenticate CLIs (npm run auth-cli)"
+	@echo "  make verify                      — Verify CLIs/keys (npm run verify)"
 
 run:
 	./scripts/cli/plan-an-go.sh
@@ -89,6 +109,28 @@ validate-cursor-agent:
 	@if [ -z "$(FILE)" ]; then echo "Usage: make validate-cursor-agent FILE=path/to/implementer_output"; exit 1; fi
 	./scripts/cli/plan-an-go-validate-cursor-agent.sh "$(FILE)"
 
+planner:
+	@if [ -n "$(PROMPT)" ]; then ./scripts/cli/plan-an-go-planner.sh --prompt="$(PROMPT)" --out "$(or $(OUT),./PLAN.md)"; \
+	elif [ -n "$(IN)" ]; then ./scripts/cli/plan-an-go-planner.sh --in "$(IN)" --out "$(or $(OUT),./PLAN.md)"; \
+	else echo "Usage: make planner PROMPT='...' [OUT=./PLAN.md]  OR  make planner IN=path/to/doc [OUT=./PLAN.md]"; exit 1; fi
+
+prd:
+	@if [ -n "$(PROMPT)" ]; then ./scripts/cli/plan-an-go-prd.sh --prompt="$(PROMPT)" --out "$(or $(OUT),./PRD.md)"; \
+	elif [ -n "$(IN)" ]; then ./scripts/cli/plan-an-go-prd.sh --in "$(IN)" --out "$(or $(OUT),./PRD.md)"; \
+	else echo "Usage: make prd PROMPT='...' [OUT=./PRD.md]  OR  make prd IN=path/to/doc [OUT=./PRD.md]"; exit 1; fi
+
+prd-from-plan:
+	@./scripts/cli/plan-an-go-prd-from-plan.sh --plan "$(or $(PLAN),./PLAN.md)" --prd "$(or $(PRD),./PRD.md)"
+
+reset:
+	./scripts/cli/plan-an-go-reset.sh --plan "$(or $(PLAN),./PLAN.md)"
+
+split:
+	./scripts/cli/plan-an-go-split-run.sh
+
+example-count:
+	./examples/count/run.sh
+
 file-watch:
 	./scripts/cli/plan-an-go-file-watch.sh
 
@@ -103,6 +145,21 @@ slack-update:
 	@if [ -z "$(MSG)" ]; then echo "Usage: make slack-update MSG='message' [THREAD=thread_ts]"; exit 1; fi
 	@if [ -n "$(THREAD)" ]; then ./scripts/cli/plan-an-go-slack-update.sh "$(MSG)" "$(THREAD)"; else ./scripts/cli/plan-an-go-slack-update.sh "$(MSG)"; fi
 
+lint:
+	npm run lint
+
+format:
+	npm run format
+
+format-write:
+	npm run format:write
+
+check:
+	npm run check
+
+ci build:
+	./scripts/system/ci.sh
+
 setup:
 	./scripts/system/setup.sh
 
@@ -111,3 +168,6 @@ install-clis:
 
 auth-cli:
 	./scripts/system/auth-cli.sh
+
+verify:
+	./scripts/system/verify.sh

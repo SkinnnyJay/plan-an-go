@@ -1,0 +1,9 @@
+# Shellcheck config for plan-an-go bash scripts.
+# Run: shellcheck scripts/**/*.sh scripts/plan-an-go
+
+# Allow sourcing .env (dynamic path)
+external-sources=false
+
+# SC1090: Can't follow non-constant source - we source .env intentionally
+# SC1091: Not following - same
+disable=SC1090,SC1091

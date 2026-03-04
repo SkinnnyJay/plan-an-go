@@ -101,10 +101,10 @@ if [ "$USE_SLACK" = "true" ]; then
   fi
 fi
 
-# 6) PRD file (optional; often created later)
-PRD_FILE="${PRD_FILE:-PRD.md}"
-if [ ! -f "$REPO_ROOT/$PRD_FILE" ]; then
-  echo "INFO: $PRD_FILE not found (create it when starting a plan)"
+# 6) Plan file (optional; often created later)
+PLAN_FILE="${PLAN_FILE:-PLAN.md}"
+if [ ! -f "$REPO_ROOT/$PLAN_FILE" ]; then
+  echo "INFO: $PLAN_FILE not found (create it when starting a plan)"
 fi
 
 echo "---"

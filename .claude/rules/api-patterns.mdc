@@ -1,0 +1,41 @@
+---
+description: "API route patterns for Next.js App Router: Zod validation at boundaries, standard route handlers"
+globs: ["src/app/api/**/*.ts"]
+alwaysApply: false
+---
+
+# API Route Patterns (RetroLLM Arena)
+
+API routes use Next.js App Router `route.ts` handlers. Validate all external input with Zod at the boundary.
+
+## Request/response validation
+
+- Define Zod schemas for request body (and query if needed); derive types with `z.infer<typeof Schema>`.
+- Use `safeParse()` for user input and return 400 with flattened errors on failure; use `parse()` only for trusted internal data.
+- Return typed JSON via `Response.json()` with appropriate status codes from `@/lib/constants/http` where applicable.
+
+## Example
+
+```typescript
+import { z } from "zod";
+
+const BodySchema = z.object({ name: z.string(), count: z.number().int().min(0) });
+type Body = z.infer<typeof BodySchema>;
+
+export async function POST(request: Request): Promise<Response> {
+  const parsed = BodySchema.safeParse(await request.json());
+  if (!parsed.success) {
+    return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+  const body = parsed.data;
+  // ... use body with correct type
+  return Response.json({ success: true });
+}
+```
+
+## Structure
+
+- Routes live under `src/app/api/` (e.g. `src/app/api/agent/make-decision/route.ts`).
+- Call into `src/lib/` for business logic; avoid inlining large logic in route files.
+- Use `createLoggerInstance("RouteName")` from `@/lib/logger` for server-side logging.
+- Constants: use `@/lib/constants/routes`, `@/lib/constants/http`, etc.; no magic strings or numbers.

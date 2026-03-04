@@ -7,9 +7,14 @@ Scripts to install CLIs, authenticate, and verify the environment for plan-an-go
 | Script | Purpose |
 |--------|---------|
 | **setup.sh** | Run install → auth → verify in order. Optional: `--skip-install`, `--skip-auth`, `--skip-verify`, `--force` (pass to verify). Extra args go to install-clis (e.g. `./setup.sh all`). |
-| **install-clis.sh** | Install CLIs: `claude`, `codex`, `jq`, `fswatch`; check-only for `cursor-agent`. No args = interactive (y/n). `all` = install all; or list names. |
+| **install-clis.sh** | Install CLIs: `claude`, `codex`, `jq`, `fswatch`; check-only for `cursor-agent`. Dispatches to **install-clis-&lt;platform&gt;.sh** (darwin, linux, windows). No args = interactive (y/n). `all` = install all; or list names. |
+| **install-clis-darwin.sh** | macOS installers (Homebrew, Claude install script, npm fallbacks). Sourced by install-clis.sh. |
+| **install-clis-linux.sh** | Linux installers (apt-get, Homebrew if present, npm). Sourced by install-clis.sh. |
+| **install-clis-windows.sh** | Windows installers (winget, Chocolatey, npm). For Git Bash / MSYS2 / Cygwin. Sourced by install-clis.sh. |
+| **platform.sh** | Portable helpers: `get_platform` (darwin\|linux\|windows), `stat_mtime path`, `install_hint jq\|fswatch`. Source from other scripts for OS-neutral behavior. |
 | **auth-cli.sh** | Authenticate selected CLIs (web login). Skips web login if `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is set in `.env`/`.env.local`. `--logout [claude codex]` to log out. |
 | **verify.sh** | Check `.env`, selected `PLAN_AN_GO_CLI` in PATH, auth (key or CLI login), optional Slack/jq. `--force` = warnings only, exit 0. |
+| **ci.sh** | Full CI gate: lint → format check → test. Used by `npm run ci` / `npm run build` and `make ci` / `make build`. Exit code = failed step or 0. |
 
 ## Quick reference
 
@@ -36,6 +41,10 @@ Scripts to install CLIs, authenticate, and verify the environment for plan-an-go
 
 # Verify but ignore failures (warnings only)
 ./scripts/system/verify.sh --force
+
+# Full CI gate (lint → format → test; for CLI/CD)
+./scripts/system/ci.sh
+# or: npm run ci   make ci   make build
 ```
 
 ## Env

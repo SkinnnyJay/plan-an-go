@@ -47,7 +47,7 @@ echo -e "${GREEN}1. Plan file found ($(wc -c < "$PLAN_FILE" | tr -d ' ') bytes)$
 echo ""
 
 #═══════════════════════════════════════════════════════════════════════════════
-# 2 & 3 & 4. Parse: milestones, tasks, subtasks, complete/incomplete
+# 2. Counts, 3. Completion: parse milestones, tasks, subtasks, complete/incomplete
 #═══════════════════════════════════════════════════════════════════════════════
 # Milestone = **M<n>:0 - Title** (section header)
 # Task = line starting with [ ] or [x] then " - M<n>:<id>-" (id may have .<sub>)

@@ -1,4 +1,5 @@
 #!/bin/bash
 # Wrapper: run Plan-an-go pipeline with Claude CLI
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export PLAN_AN_GO_CLI="claude"
-exec ./plan-an-go-forever.sh "$@"
+exec "$SCRIPT_DIR/plan-an-go-forever.sh" "$@"

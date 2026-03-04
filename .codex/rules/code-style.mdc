@@ -1,0 +1,48 @@
+---
+description: "RetroLLM Arena TypeScript code quality: type safety, file limits, logging, env access, naming"
+alwaysApply: true
+---
+
+# Code Quality Standards
+
+## Strict Type Safety
+- Never use `any`. Type every variable, parameter, and return value explicitly.
+- Never use type casting (`as`). Use type guards, narrowing, or generics instead.
+- Define data types as Zod schemas at system boundaries; infer types: `type T = z.infer<typeof Schema>`.
+- Validate API request bodies and external data with `schema.parse()` or `schema.safeParse()`.
+- Strict mode enabled; build errors fail the build.
+
+## File & Function Size Limits
+- **Functions**: max 500 lines. Break large functions into smaller, composable helpers.
+- **Files**: max 2500 lines. Split into modules if approaching the limit.
+- Prefer early returns to reduce nesting depth.
+
+## Environment Variables
+- Always use `env` and `features` from `@/lib/env` to access configuration. Never use `process.env` directly (except in tests or scripts).
+
+## Logging
+- Backend: use `createLoggerInstance(name)` from `@/lib/logger`.
+- Frontend: use `useLogger({ name })` from `@/hooks`.
+- Never use `console.log`, `console.debug`, `console.error`, or `console.info` directly.
+
+## Comments & Documentation
+- Only add meaningful comments: logical steps, complex algorithm explanations, non-obvious "why" reasoning.
+- Do not add trivial comments that restate what the code does.
+- No emoji in code or comments.
+
+## Private/Protected Member Naming
+- Use TypeScript's `private` or `protected` keyword. Do NOT prefix with underscores.
+  - Correct: `private eventBus: IChatEventBus;`
+  - Wrong: `private _eventBus: IChatEventBus;`
+- Enforced by Biome (`useNamingConvention`) and ESLint (`@typescript-eslint/naming-convention`).
+
+## Naming Conventions
+- PascalCase for component files: `AgentFormDialog.tsx`
+- camelCase for utilities and hooks: `useAgentList.ts`, `background-jobs.service.ts`
+- snake_case only for database columns and env-aligned names
+- Named exports for components (not default, except `page.tsx`)
+
+## Component Patterns
+- `"use client"` pragma only for components with React state/hooks
+- Prefer Radix UI / shadcn components from `src/components/ui/` before building custom UI
+- Tailwind utility classes with `cn()` helper from `@/lib/utils`

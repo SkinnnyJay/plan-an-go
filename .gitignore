@@ -24,7 +24,6 @@ dist
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-history.log
 
 # Application logs (root level only)
 #/logs/
@@ -69,11 +68,23 @@ public/theme-constants.js
 *.tmp
 *.temp
 
-# Temporary files directory (runtime artifacts, research repos, test data)
+# Pipeline and temp output (progress.txt, history.log, pipeline-tail.log, mktemp files)
 tmp/
 !tmp/.gitkeep
+progress.txt
+# Agent-written task artifacts (when not under tmp/)
+task-*-completed.txt
+task-*-output.txt
 
 # Git Worktrees (keep structure, ignore contents)
 .worktrees/*
 !.worktrees/.gitkeep
 !.worktrees/README.md
+./agents/.worktrees/*
+
+# Project
+__tests__/
+history.log
+*.log
+.tmp/
+PLAN.md

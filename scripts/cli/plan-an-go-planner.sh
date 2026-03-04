@@ -8,17 +8,19 @@
 #
 # Usage:
 #   ./plan-an-go-planner.sh [options] [PRD.md or other input file]
+#   ./plan-an-go-planner.sh [options] --in PATH [options]
 #   ./plan-an-go-planner.sh [options] --prompt="I need a blue button, click does x, auth driven"
 #
 # Options:
+#   --in PATH                         Input file (PRD or other doc to plan from)
+#   --out PATH                        Output file (default: ./PLAN.md)
 #   --cli claude|codex|cursor-agent   CLI to use (default: from PLAN_AN_GO_CLI or claude)
 #   --cli-flags "<flags>"             Extra flags for the CLI
-#   --out PATH                        Output file (default: ./PLAN.md)
 #   --prompt="..."                    Use this string as the planning input instead of a file
 #
 # Examples:
 #   ./plan-an-go-planner.sh PRD.md
-#   ./plan-an-go-planner.sh --out ./my-plan.md PRD.md
+#   ./plan-an-go-planner.sh --in PLAN.md --out ./my-plan.md
 #   ./plan-an-go-planner.sh --prompt="Add a blue feature button; on click go to x; auth only"
 #   ./plan-an-go-planner.sh --cli cursor-agent --prompt="New API endpoint for users list"
 
@@ -45,6 +47,9 @@ for arg in "$@"; do
     --cli-flags=*)
       CLI_FLAGS="${arg#*=}"
       ;;
+    --in=*)
+      INPUT_FILE="${arg#*=}"
+      ;;
     --out=*)
       OUT_FILE="${arg#*=}"
       ;;
@@ -55,6 +60,8 @@ for arg in "$@"; do
       ;;
     --cli-flags)
       ;;
+    --in)
+      ;;
     --out)
       ;;
     *)
@@ -62,11 +69,13 @@ for arg in "$@"; do
         CLI_BIN="$arg"
       elif [ "${PREV_ARG}" = "--cli-flags" ]; then
         CLI_FLAGS="$arg"
+      elif [ "${PREV_ARG}" = "--in" ]; then
+        INPUT_FILE="$arg"
       elif [ "${PREV_ARG}" = "--out" ]; then
         OUT_FILE="$arg"
       elif [[ "$arg" != --* ]]; then
-        # Positional: treat as input file (only if not using --prompt)
-        if [ -z "$USER_PROMPT" ]; then
+        # Positional: treat as input file (only if not using --prompt or --in)
+        if [ -z "$USER_PROMPT" ] && [ -z "$INPUT_FILE" ]; then
           INPUT_FILE="$arg"
         fi
       fi
@@ -75,12 +84,26 @@ for arg in "$@"; do
   PREV_ARG="$arg"
 done
 
+# Resolve CLI flags: use PLAN_AN_GO_CLI_FLAGS if set, else per-CLI vars
+if [ -z "$CLI_FLAGS" ]; then
+  case "$CLI_BIN" in
+    claude) CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
+    codex)  CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
+    *)      ;;
+  esac
+fi
+
 # Default output path (relative to cwd when script was invoked)
 [ -z "$OUT_FILE" ] && OUT_FILE="./PLAN.md"
 
+# Temp files under ./tmp
+TMP_DIR="${PLAN_AN_GO_TMP:-./tmp}"
+mkdir -p "$TMP_DIR"
+
 # Require either an input file or --prompt
 if [ -z "$USER_PROMPT" ] && [ -z "$INPUT_FILE" ]; then
-  echo "Usage: $0 [--cli claude|codex|cursor-agent] [--out PATH] (PRD.md | other file)" >&2
+  echo "Usage: $0 [--in PATH] [--out PATH] [--cli ...] (PRD.md | other file)" >&2
+  echo "   or: $0 [options] --in PATH   (explicit input file)" >&2
   echo "   or: $0 [options] --prompt=\"Your planning request here\"" >&2
   echo "Default output: ./PLAN.md" >&2
   exit 1
@@ -106,34 +129,34 @@ if ! command -v "$CLI_BIN" &> /dev/null; then
   exit 1
 fi
 
-# Build full prompt: planning.md + "INPUT" section + (file contents or user prompt)
-temp_prompt=$(mktemp)
-temp_out=$(mktemp)
-temp_err=$(mktemp)
+# Build full prompt: instructions + template first, then INPUT DOCUMENT last so the model sees it
+temp_prompt=$(mktemp "$TMP_DIR/planner-prompt.XXXXXX")
+temp_out=$(mktemp "$TMP_DIR/planner-out.XXXXXX")
+temp_err=$(mktemp "$TMP_DIR/planner-err.XXXXXX")
 trap 'rm -f "$temp_prompt" "$temp_out" "$temp_err"' EXIT
 
 cat "$PLANNING_PROMPT" >> "$temp_prompt"
 echo "" >> "$temp_prompt"
-echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
-echo "INPUT (PRD / user request)" >> "$temp_prompt"
-echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
-echo "" >> "$temp_prompt"
 
-if [ -n "$USER_PROMPT" ]; then
-  echo "$USER_PROMPT" >> "$temp_prompt"
-else
-  cat "$INPUT_FILE" >> "$temp_prompt"
-fi
-
-echo "" >> "$temp_prompt"
-
-# Optional: append template reference so model can match format exactly
+# Template reference (before input so "match this structure" is clear)
 if [ -f "$TEMPLATE_FILE" ]; then
   echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
   echo "REFERENCE TEMPLATE (match this structure)" >> "$temp_prompt"
   echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
   cat "$TEMPLATE_FILE" >> "$temp_prompt"
+  echo "" >> "$temp_prompt"
 fi
+
+# Input document at the very end so the model definitely sees it
+echo "BEGIN INPUT DOCUMENT" >> "$temp_prompt"
+echo "" >> "$temp_prompt"
+if [ -n "$USER_PROMPT" ]; then
+  echo "$USER_PROMPT" >> "$temp_prompt"
+else
+  cat "$INPUT_FILE" >> "$temp_prompt"
+fi
+echo "" >> "$temp_prompt"
+echo "END INPUT DOCUMENT" >> "$temp_prompt"
 
 # Invoke CLI (same pattern as plan-an-go.sh)
 CLAUDE_MODEL="${PLAN_AN_GO_CLAUDE_MODEL:-claude-sonnet-4-20250514}"

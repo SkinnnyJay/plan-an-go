@@ -1,5 +1,6 @@
 #!/bin/bash
 # install-clis.sh — Install CLIs required for plan-an-go (claude, codex, cursor-agent, jq, fswatch).
+# Dispatches to install-clis-<platform>.sh (darwin, linux, windows). See scripts/system/platform.sh.
 # Usage: ./install-clis.sh [claude] [codex] [cursor-agent] [jq] [fswatch]   # install only these
 #        ./install-clis.sh                                                  # interactive: y/n for each
 #        ./install-clis.sh all                                              # install all that can be installed
@@ -8,96 +9,29 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# CLIs that we can install automatically
-INSTALLABLE_CLIS="claude codex jq fswatch"
-# cursor-agent is typically provided by Cursor IDE; we only check for it
-CHECK_ONLY_CLIS="cursor-agent"
-
+# Shared helper (used by platform scripts when sourced)
 is_installed() {
   command -v "$1" &>/dev/null
 }
 
-install_claude() {
-  if is_installed claude; then
-    echo "  claude already installed."
-    return 0
-  fi
-  echo "  Installing claude (Anthropic Claude Code CLI)..."
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    curl -fsSL https://claude.ai/install.sh | bash || {
-      echo "  Fallback: npm install -g @anthropic-ai/claude-code"
-      npm install -g @anthropic-ai/claude-code
-    }
-  else
-    npm install -g @anthropic-ai/claude-code
-  fi
-  if ! is_installed claude; then
-    echo "  WARNING: claude may not be in PATH. Add the install directory to PATH."
-    return 1
-  fi
-  echo "  claude installed."
-}
+# Platform detection and platform-specific install functions
+# shellcheck source=scripts/system/platform.sh
+. "$SCRIPT_DIR/platform.sh"
+PLATFORM=$(get_platform)
+INSTALL_SCRIPT="$SCRIPT_DIR/install-clis-$PLATFORM.sh"
+if [[ ! -f "$INSTALL_SCRIPT" ]]; then
+  echo "ERROR: No install script for platform '$PLATFORM' ($INSTALL_SCRIPT). Supported: darwin, linux, windows." >&2
+  exit 1
+fi
+# shellcheck source=scripts/system/install-clis-darwin.sh
+# shellcheck source=scripts/system/install-clis-linux.sh
+# shellcheck source=scripts/system/install-clis-windows.sh
+. "$INSTALL_SCRIPT"
 
-install_codex() {
-  if is_installed codex; then
-    echo "  codex already installed."
-    return 0
-  fi
-  echo "  Installing codex (OpenAI Codex CLI)..."
-  if command -v brew &>/dev/null; then
-    brew install --cask codex 2>/dev/null || npm install -g @openai/codex
-  else
-    npm install -g @openai/codex
-  fi
-  if ! is_installed codex; then
-    echo "  WARNING: codex may not be in PATH. Add the install directory to PATH."
-    return 1
-  fi
-  echo "  codex installed."
-}
-
-install_jq() {
-  if is_installed jq; then
-    echo "  jq already installed."
-    return 0
-  fi
-  echo "  Installing jq..."
-  if command -v brew &>/dev/null; then
-    brew install jq
-  elif command -v apt-get &>/dev/null; then
-    sudo apt-get update && sudo apt-get install -y jq
-  else
-    echo "  Please install jq manually: https://jqlang.github.io/jq/download/"
-    return 1
-  fi
-  echo "  jq installed."
-}
-
-install_fswatch() {
-  if is_installed fswatch; then
-    echo "  fswatch already installed."
-    return 0
-  fi
-  echo "  Installing fswatch (optional, for file watching)..."
-  if command -v brew &>/dev/null; then
-    brew install fswatch
-  elif command -v apt-get &>/dev/null; then
-    sudo apt-get update && sudo apt-get install -y fswatch
-  else
-    echo "  Please install fswatch manually if you need file-watch features."
-    return 1
-  fi
-  echo "  fswatch installed."
-}
-
-check_cursor_agent() {
-  if is_installed cursor-agent; then
-    echo "  cursor-agent is in PATH."
-    return 0
-  fi
-  echo "  cursor-agent not found. Install Cursor IDE; the agent is usually available when Cursor is installed."
-  return 1
-}
+# CLIs that we can install automatically
+INSTALLABLE_CLIS="claude codex jq fswatch"
+# cursor-agent is typically provided by Cursor IDE; we only check for it
+CHECK_ONLY_CLIS="cursor-agent"
 
 run_install() {
   local name="$1"
@@ -124,7 +58,7 @@ done
 
 # If no args, interactive
 if [ ${#WANT_CLIS[@]} -eq 0 ] && [ "$WANT_ALL" != "true" ]; then
-  echo "Install plan-an-go CLIs. Choose which to install (y/n)."
+  echo "Install plan-an-go CLIs (platform: $PLATFORM). Choose which to install (y/n)."
   for c in $INSTALLABLE_CLIS $CHECK_ONLY_CLIS; do
     if [ "$c" = "cursor-agent" ]; then
       echo -n "  Check only (no install): cursor-agent [y/n]? "
@@ -150,7 +84,7 @@ if [ ${#WANT_CLIS[@]} -eq 0 ]; then
   exit 0
 fi
 
-echo "Installing/checking: ${WANT_CLIS[*]}"
+echo "Installing/checking: ${WANT_CLIS[*]} (platform: $PLATFORM)"
 FAILED=0
 for c in "${WANT_CLIS[@]}"; do
   run_install "$c" || FAILED=$((FAILED + 1))

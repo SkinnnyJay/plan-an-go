@@ -1,0 +1,38 @@
+# Development and IDE
+.cursor/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local env ( .env.sample is included via package.json "files" )
+.env
+.env.*
+!.env.sample
+
+# Internal (not needed for consumers)
+agents/
+
+# OS and logs
+.DS_Store
+*.log
+*.tmp
+*.temp
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Project
+__tests__/
+history.log
+*.log
+.tmp/
+PLAN.md
+
+# Git Worktrees (keep structure, ignore contents)
+.worktrees/*
+!.worktrees/.gitkeep
+!.worktrees/README.md
+./agents/.worktrees/*

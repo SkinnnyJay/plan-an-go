@@ -15,19 +15,24 @@
 #   post_to_slack_thread "Reply 1" "$thread_ts"
 #   post_to_slack_thread "Reply 2" "$thread_ts"
 #
-# Environment Variables:
-#   SLACK_APP_BOT_OAUTH_TOKEN - Slack bot OAuth token (xoxb-..., recommended for posting messages)
-#   SLACK_APP_ACCESS_TOKEN - Slack OAuth access token (fallback, xoxe-... or xoxp-...)
-#   SLACK_APP_REFRESH_TOKEN - Slack refresh token (optional, for token renewal)
-#   SLACK_CLIENT_ID - Slack app client ID (optional, required for token refresh)
-#   SLACK_CLIENT_SECRET - Slack app client secret (optional, required for token refresh)
-#
-# The script will attempt to load these from .env.local if present.
-# Priority: SLACK_APP_BOT_OAUTH_TOKEN > SLACK_APP_ACCESS_TOKEN
+# Environment Variables (use either set; PLAN_AN_GO_* from .env, SLACK_APP_* from .env.local):
+#   PLAN_AN_GO_SLACK_APP_BOT_OAUTH_TOKEN or SLACK_APP_BOT_OAUTH_TOKEN - Bot token (xoxb-..., recommended)
+#   PLAN_AN_GO_SLACK_APP_ACCESS_TOKEN or SLACK_APP_ACCESS_TOKEN - User token (fallback)
+#   PLAN_AN_GO_SLACK_APP_REFRESH_TOKEN or SLACK_APP_REFRESH_TOKEN - For token renewal (optional)
+#   PLAN_AN_GO_SLACK_APP_CLIENT_ID or SLACK_CLIENT_ID - For token refresh (optional)
+#   PLAN_AN_GO_SLACK_APP_CLIENT_SECRET or SLACK_CLIENT_SECRET - For token refresh (optional)
+# Priority: PLAN_AN_GO_* (from .env) then SLACK_APP_* (from .env.local). Token: BOT > ACCESS.
 
-# Load environment variables from .env.local if present
+# Load .env from repo root when present (so PLAN_AN_GO_SLACK_* are set), then .env.local overrides
+if [ -f .env ]; then
+  set -a
+  # shellcheck source=/dev/null
+  source .env
+  set +a
+fi
 if [ -f .env.local ]; then
   set -a
+  # shellcheck source=/dev/null
   source .env.local
   set +a
 fi
@@ -44,17 +49,19 @@ export SLACK_LAST_TS=""
 # Refresh the Slack access token using the refresh token
 # Returns: 0 on success (sets SLACK_APP_ACCESS_TOKEN), 1 on failure
 refresh_slack_token() {
-  if [ -z "$SLACK_APP_REFRESH_TOKEN" ]; then
-    echo "❌ Error: SLACK_APP_REFRESH_TOKEN not set" >&2
+  local refresh_token="${PLAN_AN_GO_SLACK_APP_REFRESH_TOKEN:-$SLACK_APP_REFRESH_TOKEN}"
+  local client_id="${PLAN_AN_GO_SLACK_APP_CLIENT_ID:-$SLACK_CLIENT_ID}"
+  local client_secret="${PLAN_AN_GO_SLACK_APP_CLIENT_SECRET:-$SLACK_CLIENT_SECRET}"
+  if [ -z "$refresh_token" ]; then
+    echo "❌ Error: PLAN_AN_GO_SLACK_APP_REFRESH_TOKEN or SLACK_APP_REFRESH_TOKEN not set" >&2
     return 1
   fi
-  
+
   echo "🔄 Refreshing Slack access token..." >&2
-  
-  local refresh_payload="grant_type=refresh_token&refresh_token=$SLACK_APP_REFRESH_TOKEN"
-  
-  if [ -n "$SLACK_CLIENT_ID" ] && [ -n "$SLACK_CLIENT_SECRET" ]; then
-    refresh_payload="$refresh_payload&client_id=$SLACK_CLIENT_ID&client_secret=$SLACK_CLIENT_SECRET"
+
+  local refresh_payload="grant_type=refresh_token&refresh_token=$refresh_token"
+  if [ -n "$client_id" ] && [ -n "$client_secret" ]; then
+    refresh_payload="$refresh_payload&client_id=$client_id&client_secret=$client_secret"
   fi
   
   local response=$(curl -s -w "\n%{http_code}" \
@@ -78,7 +85,9 @@ refresh_slack_token() {
     
     if [ "$ok" = "true" ] && [ -n "$new_access_token" ]; then
       export SLACK_APP_ACCESS_TOKEN="$new_access_token"
+      export PLAN_AN_GO_SLACK_APP_ACCESS_TOKEN="$new_access_token"
       [ -n "$new_refresh_token" ] && export SLACK_APP_REFRESH_TOKEN="$new_refresh_token"
+      [ -n "$new_refresh_token" ] && export PLAN_AN_GO_SLACK_APP_REFRESH_TOKEN="$new_refresh_token"
       echo "✅ Token refreshed successfully" >&2
       return 0
     fi
@@ -130,11 +139,15 @@ _post_to_slack_internal() {
     -e 's/</\&lt;/g' \
     -e 's/>/\&gt;/g')
   
-  # Get token
+  # Get token (prefer PLAN_AN_GO_* from .env, then SLACK_APP_* from .env.local)
   local token_to_use=""
-  if [ -n "$SLACK_APP_BOT_OAUTH_TOKEN" ]; then
+  if [ -n "${PLAN_AN_GO_SLACK_APP_BOT_OAUTH_TOKEN:-}" ]; then
+    token_to_use="$PLAN_AN_GO_SLACK_APP_BOT_OAUTH_TOKEN"
+  elif [ -n "${SLACK_APP_BOT_OAUTH_TOKEN:-}" ]; then
     token_to_use="$SLACK_APP_BOT_OAUTH_TOKEN"
-  elif [ -n "$SLACK_APP_ACCESS_TOKEN" ]; then
+  elif [ -n "${PLAN_AN_GO_SLACK_APP_ACCESS_TOKEN:-}" ]; then
+    token_to_use="$PLAN_AN_GO_SLACK_APP_ACCESS_TOKEN"
+  elif [ -n "${SLACK_APP_ACCESS_TOKEN:-}" ]; then
     token_to_use="$SLACK_APP_ACCESS_TOKEN"
   fi
   

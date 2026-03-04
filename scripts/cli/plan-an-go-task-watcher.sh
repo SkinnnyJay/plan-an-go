@@ -1,12 +1,12 @@
 #!/bin/bash
 #
-# plan-an-go-task-watcher.sh - Watch a PRD (or similar) file and show a live task list.
+# plan-an-go-task-watcher.sh - Watch the plan file and show a live task list.
 # Parses checkbox lines [x] / [ ] and M?N:?... task IDs; redraws on file change.
 #
 # Layout (ASCII):
 #
 #   +----------------------------------------------------------------------+
-#   |  PRD Task Watcher                                    ./PRD.md        |
+#   |  Plan Task Watcher                                   ./PLAN.md       |
 #   +----------+-----+----------------------------------------------------+
 #   |  ID      |     | Task summary (truncated to fit)                     |
 #   +----------+-----+----------------------------------------------------+
@@ -22,12 +22,13 @@
 #
 # When a task changes from incomplete to complete, it is shown checked (✓) and
 # briefly highlighted in bold green on the next refresh.
-# Tasks whose summary contains [IN_PROGRESS] are shown with a blinking yellow ○ (in progress).
+# Tasks whose summary contains [IN_PROGRESS] or [IN_PROGRESS]:[AGENT_NN] are shown with a yellow ● (in progress).
+# When [IN_PROGRESS]:[AGENT_01] is present, the agent id is shown in the Agent column.
 # Prerequisites: fswatch (brew install fswatch) unless --once is used.
 #
 # Usage:
 #   ./plan-an-go-task-watcher.sh [options]
-#   --prd PATH       Path to PRD file (default: ./PRD.md)
+#   --plan PATH      Path to plan file (default: ./PLAN.md)
 #   --once           Single run, no watch
 #   --width N        Terminal width for truncation (default: tput cols)
 #   --max-rows N     Max task rows to show (default: LINES-8)
@@ -41,6 +42,9 @@
 #   --poll N         fswatch poll interval in seconds (default: 1)
 
 set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../system/platform.sh
+. "$SCRIPT_DIR/../system/platform.sh"
 
 # Colors
 RED='\033[0;31m'
@@ -52,7 +56,7 @@ DIM='\033[2m'
 BLINK='\033[5m'
 RESET='\033[0m'
 
-PRD_PATH="./PRD.md"
+PLAN_PATH="./PLAN.md"
 ONCE=false
 USE_COLOR=true
 SHOW_PROGRESS=true
@@ -67,8 +71,8 @@ MINIMAL_AFTER=3
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --prd)
-      PRD_PATH="$2"
+    --plan)
+      PLAN_PATH="$2"
       shift 2
       ;;
     --once)
@@ -130,8 +134,8 @@ if [[ -z "$WIDTH" ]]; then
   WIDTH=$(tput cols 2>/dev/null) || WIDTH=80
 fi
 
-if [[ ! -f "$PRD_PATH" ]]; then
-  echo "Error: PRD file not found: $PRD_PATH" 1>&2
+if [[ ! -f "$PLAN_PATH" ]]; then
+  echo "Error: Plan file not found: $PLAN_PATH" 1>&2
   exit 1
 fi
 
@@ -141,8 +145,11 @@ MINIMAL_AFTER=$(( MINIMAL_AFTER + 0 ))
 [[ "$MINIMAL_BEFORE" -lt 0 ]] && MINIMAL_BEFORE=0
 [[ "$MINIMAL_AFTER" -lt 0 ]] && MINIMAL_AFTER=0
 
-PRD_ABS=$(cd "$(dirname "$PRD_PATH")" && pwd)/$(basename "$PRD_PATH")
-STATE_DIR=$(mktemp -d /tmp/plan-an-go-task-watcher.XXXXXX)
+TMP_DIR="${PLAN_AN_GO_TMP:-./tmp}"
+mkdir -p "$TMP_DIR"
+
+PLAN_ABS=$(cd "$(dirname "$PLAN_PATH")" && pwd)/$(basename "$PLAN_PATH")
+STATE_DIR=$(mktemp -d "$TMP_DIR/task-watcher.XXXXXX")
 PREV_COMPLETED="${STATE_DIR}/prev_completed.txt"
 CURRENT_TASKS="${STATE_DIR}/current_tasks.txt"
 FIRST_RUN="${STATE_DIR}/first_run.flag"
@@ -167,11 +174,7 @@ time_since_last_change() {
     echo "?"
     return
   fi
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    mtime=$(stat -f %m "$path" 2>/dev/null) || echo "?"
-  else
-    mtime=$(stat -c %Y "$path" 2>/dev/null) || echo "?"
-  fi
+  mtime=$(stat_mtime "$path")
   if [[ -z "$mtime" ]] || [[ "$mtime" == "?" ]]; then
     echo "?"
     return
@@ -189,8 +192,8 @@ time_since_last_change() {
   fi
 }
 
-# Parse PRD: output lines "DONE\tID\tDESCRIPTION" (DONE=0 incomplete, 1 complete, 2 in-progress).
-# Checked: [x]. Unchecked: [ ] or [  ]. If description contains [IN_PROGRESS], DONE=2.
+# Parse plan: output lines "DONE\tID\tDESCRIPTION\tAGENT" (DONE=0 incomplete, 1 complete, 2 in-progress).
+# When in-progress with [IN_PROGRESS]:[AGENT_NN], AGENT is set; completed may have [AGENT_NN] (who completed it).
 parse_tasks() {
   awk '
     BEGIN { OFS="\t" }
@@ -200,7 +203,12 @@ parse_tasks() {
         rest = substr($0, RSTART + RLENGTH)
         sub(/^[-\t ]+/, "", rest)
         gsub(/\t/, " ", rest)
-        print "1", id, rest
+        agent = ""
+        if (match(rest, /\[AGENT_[0-9]+\]/)) {
+          agent = substr(rest, RSTART + 1, RLENGTH - 2)
+          sub(/ *\[AGENT_[0-9]+\] *$/, "", rest)
+        }
+        print "1", id, rest, agent
       }
       next
     }
@@ -210,12 +218,22 @@ parse_tasks() {
         rest = substr($0, RSTART + RLENGTH)
         sub(/^[-\t ]+/, "", rest)
         gsub(/\t/, " ", rest)
-        status = (index(rest, "[IN_PROGRESS]") > 0) ? "2" : "0"
-        print status, id, rest
+        agent = ""
+        if (match(rest, /\[IN_PROGRESS\]:\[AGENT_[0-9]+\]/)) {
+          status = "2"
+          agent = substr(rest, RSTART + 14, RLENGTH - 15)
+          sub(/ \[IN_PROGRESS\]:\[AGENT_[0-9]+\]/, "", rest)
+        } else if (index(rest, "[IN_PROGRESS]") > 0) {
+          status = "2"
+          sub(/ \[IN_PROGRESS\]/, "", rest)
+        } else {
+          status = "0"
+        }
+        print status, id, rest, agent
       }
       next
     }
-  ' "$PRD_PATH" 2>/dev/null || true
+  ' "$PLAN_PATH" 2>/dev/null || true
 }
 
 # Truncate string to byte length (avoid breaking UTF-8 mid-char for simple case we trim to width)
@@ -308,21 +326,21 @@ redraw() {
   fi
 
   if [[ "$MINIMAL" == "true" ]]; then
-    echo -e "${BOLD}${CYAN}PRD Task Watcher (minimal)${RESET}${DIM}                  $(basename "$PRD_PATH")${RESET}"
+    echo -e "${BOLD}${CYAN}Plan Task Watcher (minimal)${RESET}${DIM}                  $(basename "$PLAN_PATH")${RESET}"
     sep=""
     for (( i=0; i<DESC_COL; i++ )); do sep="${sep}-"; done
     echo -e "${DIM}+----------+-----+${sep}+${RESET}"
     printf "${DIM}%-10s | %-3s | %-${DESC_COL}s${RESET}\n" "ID" "" "Task summary"
     echo -e "${DIM}+----------+-----+${sep}+${RESET}"
   elif [[ "$IDS_ONLY" == "true" ]]; then
-    echo -e "${BOLD}${CYAN}PRD Task Watcher (IDs only)${RESET}${DIM}                    $(basename "$PRD_PATH")${RESET}"
+    echo -e "${BOLD}${CYAN}Plan Task Watcher (IDs only)${RESET}${DIM}                    $(basename "$PLAN_PATH")${RESET}"
     echo -e "${DIM}+----------+-----+${RESET}"
     printf "${DIM}%-10s | %-3s${RESET}\n" "ID" ""
     echo -e "${DIM}+----------+-----+${RESET}"
   else
     sep=""
     for (( i=0; i<DESC_COL; i++ )); do sep="${sep}-"; done
-    echo -e "${BOLD}${CYAN}PRD Task Watcher${RESET}${DIM}                                    $(basename "$PRD_PATH")${RESET}"
+    echo -e "${BOLD}${CYAN}Plan Task Watcher${RESET}${DIM}                                    $(basename "$PLAN_PATH")${RESET}"
     echo -e "${DIM}+----------+-----+${sep}+${RESET}"
     printf "${DIM}%-10s | %-3s | %-${DESC_COL}s${RESET}\n" "ID" "" "Task summary"
     echo -e "${DIM}+----------+-----+${sep}+${RESET}"
@@ -336,7 +354,12 @@ redraw() {
   while IFS= read -r line && [[ $row -lt $max_rows ]]; do
     done_flag=$(echo "$line" | cut -f1)
     id=$(echo "$line" | cut -f2)
-    desc=$(echo "$line" | cut -f3-)
+    desc=$(echo "$line" | cut -f3)
+    agent=$(echo "$line" | cut -f4)
+    # Append agent id to description for in-progress tasks
+    if [[ "$done_flag" == "2" ]] && [[ -n "$agent" ]]; then
+      desc="$desc [$agent]"
+    fi
     desc=$(truncate_desc "$DESC_COL" "$desc")
     desc="${desc//%/%%}"
     check="○"
@@ -373,7 +396,7 @@ redraw() {
   fi
   if [[ "$MINIMAL" == "true" ]]; then
     echo -e "${DIM}Complete: ${completed}   Not complete: ${not_complete}${RESET}"
-    echo -e "${DIM}Last file change: $(time_since_last_change "$PRD_ABS")${RESET}"
+    echo -e "${DIM}Last file change: $(time_since_last_change "$PLAN_ABS")${RESET}"
   fi
   echo -e "${DIM}Last refresh: $(format_timestamp)${RESET}"
   if [[ "$SHOW_PROGRESS" == "true" ]]; then
@@ -400,14 +423,14 @@ fi
 
 if ! command -v fswatch &>/dev/null; then
   echo -e "${RED}Error: fswatch is not installed.${RESET}"
-  echo -e "${YELLOW}Install with: brew install fswatch${RESET}"
+  echo -e "${YELLOW}Install with: $(install_hint fswatch)${RESET}"
   echo "Or run with: --once"
   exit 1
 fi
 
 redraw
 while true; do
-  fswatch -1 -r -m poll_monitor -l "$POLL_SECS" "$PRD_ABS" &>/dev/null || true
+  fswatch -1 -r -m poll_monitor -l "$POLL_SECS" "$PLAN_ABS" &>/dev/null || true
   sleep 0.2
   redraw
 done

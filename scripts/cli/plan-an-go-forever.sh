@@ -1,6 +1,6 @@
 #!/bin/bash
 # plan-an-go-forever.sh — ORCHESTRATOR: Runs Implementer → Validator pipeline
-# Usage: ./plan-an-go-forever.sh [parent_loops] [child_loops] [--no-validate] [--no-threads] [--stream] [--no-slack|--slack] [--cli claude|codex|cursor-agent] [--cli-flags "<flags>"]
+# Usage: ./plan-an-go-forever.sh [parent_loops] [child_loops] [--no-validate] [--no-threads] [--stream] [--no-slack|--slack-enable] [--workspace DIR] [--plan FILE] [--cli claude|codex|cursor-agent] [--cli-flags "<flags>"]
 #
 # Implementer uses a 7-step workflow: Plan → Think → Research → Distill → Sub-tasks →
 # Work (with sub-agents if available) → Validate & quantify before check-off.
@@ -8,8 +8,9 @@
 # generalPurpose, test-runner, verifier) to accomplish work faster. All work is
 # validated and repeatable.
 #
-# Slack: Loads plan-an-go-slack-update.sh from repo root (post_to_slack, post_to_slack_thread, etc.).
-# Use --no-slack to disable Slack entirely; --slack to enable (default: enabled).
+# Slack: Disabled by default. Use --slack-enable (or USE_SLACK=true) to enable; requires
+# PLAN_AN_GO_SLACK_APP_BOT_OAUTH_TOKEN or PLAN_AN_GO_SLACK_APP_ACCESS_TOKEN. If enabled
+# but tokens are unset or a post fails, we warn and continue (no exit).
 # Optional: run ./plan-an-go-file-watch.sh in another terminal to watch repo changes while the pipeline runs.
 #
 # Arguments:
@@ -18,47 +19,87 @@
 #   --no-validate  - Skip validation step (implementer only mode)
 #   --no-threads   - Disable Slack threads (post messages directly to channel)
 #   --stream       - Stream LLM output in real-time with gray background
-#   --no-slack     - Disable Slack (no sourcing of slack script, no posts)
-#   --slack        - Enable Slack (default; overrides env or previous --no-slack)
-#   --tail[=FILE]  - Write implementer + validator output to FILE (default: pipeline-tail.log)
+#   --no-slack     - Disable Slack (default)
+#   --slack-enable - Enable Slack (requires Slack tokens in .env)
+#   --tail[=FILE]  - Write implementer + validator output to FILE (default: ./tmp/pipeline-tail.log)
 #                    so you can "tail -f FILE" in another terminal to see current iteration.
 #                    File is overwritten at the start of each iteration.
+#   --workspace    - Run from this directory (default: repo root containing scripts/cli)
+#   --plan         - Plan file path (default: PLAN.md; resolved relative to workspace)
 #   --cli          - LLM CLI to use: claude, codex, or cursor-agent (default: claude)
 #   --cli-flags    - Extra flags passed through to the CLI (quoted string)
+#   --concurrency N - Run N implementer agents in parallel; each picks one of the first N
+#                     incomplete tasks. Tasks are marked [IN_PROGRESS]:[AGENT_01] ... [AGENT_N].
+#                     Default: 1 (single agent).
+#   --clean-after   - After exit (complete, max iterations, or stop), remove workspace contents.
+#                     Requires --force; only runs when workspace is a subdir of the script repo.
+#   --force         - Required with --clean-after to confirm cleanup.
+#   --verbose       - Full iteration summaries, plan-check output; otherwise one-line progress.
+#                     Or set PLAN_AN_GO_VERBOSE=true.
+#   --quiet         - Only header, errors, and final completion/stop; no per-iteration progress.
+#                     Or set PLAN_AN_GO_QUIET=true.
 #
 # Examples:
 #   ./plan-an-go-forever.sh                    # 100 parent loops, 50 child loops, with validation
 #   ./plan-an-go-forever.sh 100 50             # 100 parent loops, 50 child loops, with validation
 #   ./plan-an-go-forever.sh 100 50 --no-validate  # Skip validation, implementer only
 #   ./plan-an-go-forever.sh --no-threads         # Post updates directly to channel
-#   ./plan-an-go-forever.sh --no-slack           # Run without Slack
+#   ./plan-an-go-forever.sh --slack-enable       # Enable Slack (tokens required)
 #   ./plan-an-go-forever.sh --no-validate      # Default loops, skip validation
-#   ./plan-an-go-forever.sh --tail              # Write iteration output to pipeline-tail.log; tail -f to watch
+#   ./plan-an-go-forever.sh --tail              # Write iteration output to ./tmp/pipeline-tail.log; tail -f to watch
 #   ./plan-an-go-forever.sh --tail=my.log       # Use my.log for tail output
 #   ./plan-an-go-forever.sh --cli codex         # Use codex CLI instead of claude
 #   ./plan-an-go-forever.sh --cli cursor-agent  # Use cursor-agent CLI (auto model)
+#   ./plan-an-go-forever.sh --workspace /path/to/project  # Run pipeline in another repo
+#   ./plan-an-go-forever.sh --verbose                    # Full summaries and plan-check output
+#   ./plan-an-go-forever.sh --quiet                      # Minimal output (header + errors + final)
 #
 # Pipeline per iteration:
 #   1. AGENT 1 (Implementer): Plan/Think/Research/Distill → Sub-tasks → Work (sub-agents if available) → Validate → ONE task (up to child_loops calls)
-#   2. AGENT 2 (Validator): Audits, quantifies completion, checks repeatability, runs tests, updates PRD (up to child_loops calls)
+#   2. AGENT 2 (Validator): Audits, quantifies completion, checks repeatability, runs tests, updates plan (up to child_loops calls)
 #      (skipped with --no-validate)
 #   3. ORCHESTRATOR: Logs results, posts to Slack, decides next action
+
+set -e
+set -o pipefail
 
 #═══════════════════════════════════════════════════════════════════════════════
 # CONFIGURATION
 #═══════════════════════════════════════════════════════════════════════════════
-# Parse arguments - check for --no-validate, --no-threads, --prd, --stream, --tail, --no-slack/--slack, --cli
+# Parse arguments - check for --no-validate, --no-threads, --plan, --workspace, --stream, --tail, --no-slack/--slack-enable, --cli
 SKIP_VALIDATION=false
 STREAM_OUTPUT=false
-PRD_FILE="PRD.md"
+PLAN_FILE="PLAN.md"
+WORKSPACE=""
 TAIL_LOG=""
-USE_SLACK="${USE_SLACK:-true}"
+USE_SLACK="${USE_SLACK:-false}"
 SLACK_USE_THREADS="${SLACK_USE_THREADS:-true}"
 CLI_BIN="${PLAN_AN_GO_CLI:-claude}"
 CLI_FLAGS="${PLAN_AN_GO_CLI_FLAGS:-}"
+CONCURRENCY=1
+CLEAN_AFTER=false
+FORCE=false
+VERBOSE="${PLAN_AN_GO_VERBOSE:-false}"
+QUIET="${PLAN_AN_GO_QUIET:-false}"
 POSITIONAL_ARGS=()
+PREV_ARG=""
 for arg in "$@"; do
   case $arg in
+    --verbose)
+      VERBOSE=true
+      ;;
+    --quiet)
+      QUIET=true
+      ;;
+    --concurrency=*)
+      CONCURRENCY="${arg#*=}"
+      ;;
+    --clean-after)
+      CLEAN_AFTER=true
+      ;;
+    --force)
+      FORCE=true
+      ;;
     --no-validate)
       SKIP_VALIDATION=true
       ;;
@@ -68,20 +109,23 @@ for arg in "$@"; do
     --no-slack)
       USE_SLACK=false
       ;;
-    --slack)
+    --slack-enable)
       USE_SLACK=true
       ;;
     --stream)
       STREAM_OUTPUT=true
       ;;
     --tail)
-      TAIL_LOG="pipeline-tail.log"
+      TAIL_LOG="__default__"
       ;;
     --tail=*)
       TAIL_LOG="${arg#*=}"
       ;;
-    --prd=*)
-      PRD_FILE="${arg#*=}"
+    --workspace=*)
+      WORKSPACE="${arg#*=}"
+      ;;
+    --plan=*)
+      PLAN_FILE="${arg#*=}"
       ;;
     --cli=*)
       CLI_BIN="${arg#*=}"
@@ -89,26 +133,32 @@ for arg in "$@"; do
     --cli-flags=*)
       CLI_FLAGS="${arg#*=}"
       ;;
-    --prd)
-      # Handle --prd <file> format (next arg is the file)
-      # This will be handled in the next iteration
+    --workspace)
+      # Handle --workspace <dir> format (next arg is the path)
+      ;;
+    --plan)
+      # Handle --plan <file> format (next arg is the file)
       ;;
     --cli)
       # Handle --cli <value> format (next arg is the CLI)
-      # This will be handled in the next iteration
       ;;
     --cli-flags)
       # Handle --cli-flags <value> format (next arg is the flags)
-      # This will be handled in the next iteration
+      ;;
+    --concurrency)
+      # Handle --concurrency N (next arg is the value)
       ;;
     *)
-      # Check if previous arg was --prd
-      if [ "${PREV_ARG}" = "--prd" ]; then
-        PRD_FILE="$arg"
+      if [ "${PREV_ARG}" = "--workspace" ]; then
+        WORKSPACE="$arg"
+      elif [ "${PREV_ARG}" = "--plan" ]; then
+        PLAN_FILE="$arg"
       elif [ "${PREV_ARG}" = "--cli" ]; then
         CLI_BIN="$arg"
       elif [ "${PREV_ARG}" = "--cli-flags" ]; then
         CLI_FLAGS="$arg"
+      elif [ "${PREV_ARG}" = "--concurrency" ]; then
+        CONCURRENCY="$arg"
       else
         POSITIONAL_ARGS+=("$arg")
       fi
@@ -116,6 +166,36 @@ for arg in "$@"; do
   esac
   PREV_ARG="$arg"
 done
+
+# Clean workspace contents after exit; only when --clean-after and --force, and workspace is a subdir of script repo
+clean_workspace_after_exit() {
+  [ "$CLEAN_AFTER" != "true" ] && return 0
+  [ "$FORCE" != "true" ] && return 0
+  SCRIPT_REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+  # Only clean when REPO_ROOT is a subdirectory of script repo (not repo root itself)
+  case "$REPO_ROOT" in
+    "$SCRIPT_REPO_ROOT") return 0 ;;  # do not clean repo root
+    "$SCRIPT_REPO_ROOT"/*) ;;
+    *) return 0 ;;
+  esac
+  echo ""
+  echo "--- Cleaning workspace (--clean-after --force) ---"
+  rm -rf "${REPO_ROOT:?}"/*
+  echo "  Done."
+}
+
+# Resolve CLI flags: use PLAN_AN_GO_CLI_FLAGS if set, else per-CLI vars
+if [ -z "$CLI_FLAGS" ]; then
+  case "$CLI_BIN" in
+    claude) CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
+    codex)  CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
+    *)      CLI_FLAGS="" ;;
+  esac
+fi
+
+# Normalize concurrency to a positive integer
+CONCURRENCY=$(printf '%d' "$CONCURRENCY" 2>/dev/null || echo 1)
+[ "$CONCURRENCY" -lt 1 ] && CONCURRENCY=1
 
 # Export for child scripts
 export STREAM_OUTPUT
@@ -125,7 +205,53 @@ export PLAN_AN_GO_CLI_FLAGS="$CLI_FLAGS"
 
 MAX_ITERATIONS=${POSITIONAL_ARGS[0]:-100}
 MAX_CHILD_LOOPS=${POSITIONAL_ARGS[1]:-50}
-LOG_FILE="history.log"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# From scripts/cli, repo root is two levels up; or use --workspace
+if [ -n "$WORKSPACE" ]; then
+  if [ ! -d "$WORKSPACE" ]; then
+    echo "❌ ERROR: Workspace directory not found: $WORKSPACE" >&2
+    exit 1
+  fi
+  REPO_ROOT="$(cd "$WORKSPACE" && pwd)"
+else
+  REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+fi
+IMPL_SCRIPT="$SCRIPT_DIR/plan-an-go.sh"
+VAL_SCRIPT="$SCRIPT_DIR/plan-an-go-validate.sh"
+# Run from workspace/repo root so PLAN_FILE, LOG_FILE, and implementer/validator paths resolve
+cd "$REPO_ROOT" || exit 1
+
+# All pipeline logs and temp files under ./tmp by default.
+# When PLAN_AN_GO_TMP is set (e.g. in .env), use a workspace-unique subdir so progress/history/tail
+# do not collide across different workspaces.
+TMP_BASE="${PLAN_AN_GO_TMP:-./tmp}"
+if [ -n "${PLAN_AN_GO_TMP:-}" ]; then
+  WORKSPACE_ID=$(echo -n "$REPO_ROOT" | openssl dgst -sha256 2>/dev/null | awk '{print $2}' | cut -c1-8)
+  [ -z "$WORKSPACE_ID" ] && WORKSPACE_ID="default"
+  TMP_DIR="$TMP_BASE/$WORKSPACE_ID"
+else
+  TMP_DIR="$TMP_BASE"
+fi
+mkdir -p "$TMP_DIR"
+LOG_FILE="$TMP_DIR/history.log"
+[ "$TAIL_LOG" = "__default__" ] && TAIL_LOG="$TMP_DIR/pipeline-tail.log"
+PROGRESS_FILE="$TMP_DIR/progress.txt"
+
+# Display paths: relative when under REPO_ROOT for cleaner output
+DISPLAY_PLAN="$PLAN_FILE"
+DISPLAY_LOG="$LOG_FILE"
+case "$PLAN_FILE" in "$REPO_ROOT"/*) DISPLAY_PLAN="./${PLAN_FILE#$REPO_ROOT/}"; esac
+case "$LOG_FILE" in "$REPO_ROOT"/*) DISPLAY_LOG="./${LOG_FILE#$REPO_ROOT/}"; esac
+
+# If Slack enabled, require at least one token; otherwise disable and warn (do not exit)
+if [ "$USE_SLACK" = "true" ]; then
+  [ -f "$REPO_ROOT/.env" ] && set -a && source "$REPO_ROOT/.env" 2>/dev/null && set +a
+  if [ -z "${PLAN_AN_GO_SLACK_APP_BOT_OAUTH_TOKEN:-}" ] && [ -z "${PLAN_AN_GO_SLACK_APP_ACCESS_TOKEN:-}" ] && [ -z "${SLACK_APP_BOT_OAUTH_TOKEN:-}" ] && [ -z "${SLACK_APP_ACCESS_TOKEN:-}" ]; then
+    echo "⚠️  Slack enabled but no Slack tokens set (PLAN_AN_GO_SLACK_APP_BOT_OAUTH_TOKEN or PLAN_AN_GO_SLACK_APP_ACCESS_TOKEN); disabling Slack." >&2
+    USE_SLACK=false
+  fi
+fi
 
 # Sound notification: plays when iteration completes
 SOUND_ENABLED=true
@@ -138,30 +264,55 @@ play_sound() {
   fi
 }
 
+# Spoken summary after each completed task (optional). Call with: impl_output val_output iteration confidence verdict
+# No-op if TTS_AFTER_TASK is not true or OPENAI_API_KEY is unset.
+play_tts_after_task() {
+  local impl_out="$1"
+  local val_out="$2"
+  local iter="${3:-0}"
+  local conf="${4:-N/A}"
+  local ver="${5:-PASSED}"
+  [ "${TTS_AFTER_TASK:-false}" != "true" ] && return 0
+  [ -z "${OPENAI_API_KEY:-}" ] && return 0
+  local tts_script="$SCRIPT_DIR/plan-an-go-tts-summary.sh"
+  [ ! -f "$tts_script" ] && return 0
+  IMPL_OUTPUT="$impl_out" VAL_OUTPUT="$val_out" PLAN_FILE="$PLAN_FILE" \
+    ITERATION="$iter" CONFIDENCE="$conf" VERDICT="$ver" \
+    REPO_ROOT="$REPO_ROOT" PLAN_AN_GO_TMP="${TMP_DIR:-./tmp}" \
+    TTS_SUMMARY_PROMPT_FILE="${TTS_SUMMARY_PROMPT_FILE:-}" TTS_SUMMARY_MODEL="${TTS_SUMMARY_MODEL:-}" \
+    TTS_TONE="${TTS_TONE:-}" TTS_VOICE="${TTS_VOICE:-}" TTS_MODEL="${TTS_MODEL:-}" TTS_SPEED="${TTS_SPEED:-}" \
+    OPENAI_API_KEY="$OPENAI_API_KEY" \
+    bash "$tts_script" 2>/dev/null || true
+}
+
 #═══════════════════════════════════════════════════════════════════════════════
 # FAIL-EARLY VALIDATION
 #═══════════════════════════════════════════════════════════════════════════════
-# Validate PRD file exists
-if [ ! -f "$PRD_FILE" ]; then
-  echo "❌ ERROR: PRD file not found: $PRD_FILE" >&2
+# Resolve plan file to absolute path for all checks and child scripts
+if [[ "$PLAN_FILE" != /* ]]; then
+  PLAN_FILE="$REPO_ROOT/$PLAN_FILE"
+fi
+
+# Validate plan file exists
+if [ ! -f "$PLAN_FILE" ]; then
+  echo "❌ ERROR: Plan file not found: $PLAN_FILE" >&2
   echo "" >&2
-  echo "Available PRD files:" >&2
-  ls -la *.md 2>/dev/null | grep -i prd | head -5 >&2 || echo "  (none found)" >&2
+  echo "Available plan files:" >&2
+  (cd "$REPO_ROOT" && ls -la *.md 2>/dev/null | head -5) >&2 || echo "  (none found)" >&2
   echo "" >&2
-  echo "Usage: $0 [loops] [child_loops] --prd=<filename>" >&2
+  echo "Usage: $0 [loops] [child_loops] [--workspace DIR] [--plan=<filename>] [--clean-after] [--force]" >&2
   exit 1
 fi
 
-# Validate PRD file is not empty
-if [ ! -s "$PRD_FILE" ]; then
-  echo "❌ ERROR: PRD file is empty: $PRD_FILE" >&2
+# Validate plan file is not empty
+if [ ! -s "$PLAN_FILE" ]; then
+  echo "❌ ERROR: Plan file is empty: $PLAN_FILE" >&2
   exit 1
 fi
 
-# Ensure progress.txt exists (create if missing)
-if [ ! -f "progress.txt" ]; then
-  echo "📝 Creating progress.txt (was missing)"
-  echo "# Progress Log - $(date '+%Y-%m-%d %H:%M:%S')" > progress.txt
+# Ensure progress log exists under tmp
+if [ ! -f "$PROGRESS_FILE" ]; then
+  echo "# Progress Log - $(date '+%Y-%m-%d %H:%M:%S')" > "$PROGRESS_FILE"
 fi
 
 # Validate CLI selection
@@ -178,8 +329,6 @@ if ! command -v "$CLI_BIN" &> /dev/null; then
   fi
   exit 1
 fi
-
-echo "✅ Validation passed: PRD=$PRD_FILE ($(wc -c < "$PRD_FILE" | tr -d ' ') bytes)"
 
 #═══════════════════════════════════════════════════════════════════════════════
 # INITIALIZATION
@@ -200,8 +349,6 @@ start_time=$(date +%s)
 STOP_REQUESTED=false
 PIPELINE_THREAD_TS=""  # Single thread for entire pipeline run
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Load Slack helpers from repo root (or scripts/ if placed there) only when Slack is enabled
 if [ "$USE_SLACK" = "true" ]; then
   if [ -f "$REPO_ROOT/plan-an-go-slack-update.sh" ]; then
@@ -211,16 +358,17 @@ if [ "$USE_SLACK" = "true" ]; then
   fi
 fi
 
-# Unified Slack posting (threaded when enabled, plain otherwise); no-op when --no-slack
+# Unified Slack posting (threaded when enabled, plain otherwise); no-op when Slack disabled. On failure, warn and continue.
 post_slack_message() {
   [ "$USE_SLACK" != "true" ] && return 0
   local message="$1"
   local thread_ts="${2:-}"
+  local err
 
   if [ "$SLACK_USE_THREADS" = "true" ] && [ -n "$thread_ts" ] && command -v post_to_slack_thread &> /dev/null; then
-    post_to_slack_thread "$message" "$thread_ts" 2>/dev/null || true
+    err=$(post_to_slack_thread "$message" "$thread_ts" 2>&1) || { echo "⚠️  Slack post failed: $err" >&2; return 0; }
   elif command -v post_to_slack &> /dev/null; then
-    post_to_slack "$message" 2>/dev/null || true
+    err=$(post_to_slack "$message" 2>&1) || { echo "⚠️  Slack post failed: $err" >&2; return 0; }
   fi
 }
 
@@ -229,11 +377,7 @@ handle_stop_request() {
   if [ "$STOP_REQUESTED" = "false" ]; then
     STOP_REQUESTED=true
     echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "⏸️  STOP REQUESTED - Will exit after current iteration"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    
-    # Post to Slack (threaded or plain based on setting)
+    echo "--- Stop requested (exiting after current iteration) ---"
     post_slack_message "⏸️ *Stop requested* — will exit after current iteration completes" "$PIPELINE_THREAD_TS"
   fi
 }
@@ -250,33 +394,57 @@ format_duration() {
   printf "%02d:%02d:%02d" $hours $minutes $seconds
 }
 
+# Short duration for one-line summary: 1m23s or 0h12m34s
+format_duration_short() {
+  local total_seconds=$1
+  local hours=$((total_seconds / 3600))
+  local minutes=$(((total_seconds % 3600) / 60))
+  local seconds=$((total_seconds % 60))
+  if [ "$hours" -gt 0 ]; then
+    printf "%dh%02dm%02ds" "$hours" "$minutes" "$seconds"
+  elif [ "$minutes" -gt 0 ]; then
+    printf "%dm%02ds" "$minutes" "$seconds"
+  else
+    printf "%ds" "$seconds"
+  fi
+}
+
+# Strip checkbox and [IN_PROGRESS]:[AGENT_NN] for display; output task ID and description only
+format_task_line_for_display() {
+  local line="$1"
+  line="${line#- [ ] }"
+  line="${line#\[  \] - }"
+  line="${line#\[ \] - }"
+  echo "$line" | sed -e 's/ \[IN_PROGRESS\]:\[AGENT_[0-9]*\]$//' -e 's/ \[IN_PROGRESS\]$//'
+}
+
 # Programmatic task count verification
 # Returns: "COMPLETE" if all tasks done, or "X incomplete" count
-verify_prd_completion() {
-  local prd_file="${1:-PRD.md}"
+verify_plan_completion() {
+  local plan_file="${1:-PLAN.md}"
   
-  if [ ! -f "$prd_file" ]; then
-    echo "PRD_NOT_FOUND"
+  if [ ! -f "$plan_file" ]; then
+    echo "PLAN_NOT_FOUND"
     return 1
   fi
   
   # Count all incomplete task checkboxes: template "- [ ] **" or bracket "[  ] -" (two spaces = unchecked)
   local template_incomplete
-  template_incomplete=$(grep -c '^\- \[ \] \*\*' "$prd_file" 2>/dev/null) || template_incomplete=0
+  template_incomplete=$(grep -c '^\- \[ \] \*\*' "$plan_file" 2>/dev/null) || template_incomplete=0
   local bracket_incomplete
-  bracket_incomplete=$(grep -c '^\[  \] -' "$prd_file" 2>/dev/null) || bracket_incomplete=0
+  bracket_incomplete=$(grep -c '^\[  \] -' "$plan_file" 2>/dev/null) || bracket_incomplete=0
   local all_incomplete=$((template_incomplete + bracket_incomplete))
   
   # Count CHECK.X tasks (validation gate tasks - template style only)
   local check_tasks
-  check_tasks=$(grep -c '^\- \[ \] \*\*CHECK\.' "$prd_file" 2>/dev/null) || check_tasks=0
+  check_tasks=$(grep -c '^\- \[ \] \*\*CHECK\.' "$plan_file" 2>/dev/null) || check_tasks=0
   
-  # Count incomplete tasks marked with [UI] or [FUNCTIONAL] tags (treated as incomplete per PRD legend)
+  # Count incomplete tasks marked with [UI] or [FUNCTIONAL] tags (treated as incomplete per plan legend)
   local ui_incomplete
-  ui_incomplete=$(grep -c '^\- \[x\] \[UI\]' "$prd_file" 2>/dev/null) || ui_incomplete=0
+  ui_incomplete=$(grep -c '^\- \[x\] \[UI\]' "$plan_file" 2>/dev/null) || ui_incomplete=0
   
   local func_incomplete
-  func_incomplete=$(grep -c '^\- \[x\] \[FUNCTIONAL\]' "$prd_file" 2>/dev/null) || func_incomplete=0
+  func_incomplete=$(grep -c '^\- \[x\] \[FUNCTIONAL\]' "$plan_file" 2>/dev/null) || func_incomplete=0
   
   # Implementation tasks = all incomplete minus CHECK tasks
   local impl_incomplete=$((all_incomplete - check_tasks))
@@ -291,27 +459,40 @@ verify_prd_completion() {
   fi
 }
 
-# Strip [IN_PROGRESS] from all lines in the plan/PRD file (portable sed)
+# Ensure plan file ends with a newline (keeps markdown valid)
+ensure_plan_trailing_newline() {
+  local f="$1"
+  [ ! -f "$f" ] && return 0
+  case "$(tail -c1 "$f" 2>/dev/null)" in
+    '') return 0 ;;
+    $'\n') return 0 ;;
+    *) echo >> "$f" ;;
+  esac
+}
+
+# Strip [IN_PROGRESS] and [IN_PROGRESS]:[AGENT_NN] from all lines (portable sed)
 strip_in_progress_from_file() {
-  local f="${1:-$PRD_FILE}"
+  local f="${1:-$PLAN_FILE}"
   [ ! -f "$f" ] && return 0
-  sed 's/ \[IN_PROGRESS\]//g' "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+  sed -e 's/ \[IN_PROGRESS\]:\[AGENT_[0-9]*\]//g' -e 's/ \[IN_PROGRESS\]//g' "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+  ensure_plan_trailing_newline "$f"
 }
 
-# Remove [IN_PROGRESS] only from lines that are marked complete ([x])
-# Call after implementer runs so the file is clean once a task is marked done.
+# On lines marked complete ([x]): convert [IN_PROGRESS]:[AGENT_NN] to [AGENT_NN] (keep agent);
+# remove bare [IN_PROGRESS] (no agent).
 strip_in_progress_from_completed_lines() {
-  local f="${1:-$PRD_FILE}"
+  local f="${1:-$PLAN_FILE}"
   [ ! -f "$f" ] && return 0
-  sed '/\[x\]/s/ \[IN_PROGRESS\]//g' "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+  sed -e '/\[x\]/s/ \[IN_PROGRESS\]:\(\[AGENT_[0-9]*\]\)/ \1/g' -e '/\[x\]/s/ \[IN_PROGRESS\]//g' "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+  ensure_plan_trailing_newline "$f"
 }
 
-# When implementer runs in a read-only sandbox it cannot edit the PRD; it reports success
+# When implementer runs in a read-only sandbox it cannot edit the plan file; it reports success
 # but COMMIT/FILES show "read-only" or "N/A". Parse its output and mark that task [x] so
 # the pipeline can move to the next task.
 mark_task_complete_from_implementer_output() {
   local impl_output="$1"
-  local f="${2:-$PRD_FILE}"
+  local f="${2:-$PLAN_FILE}"
   [ ! -f "$f" ] && return 0
   [ ! -f "$impl_output" ] && return 0
   # Only act when agent reported it couldn't write (read-only)
@@ -320,26 +501,52 @@ mark_task_complete_from_implementer_output() {
   fi
   # Extract task id from FEATURE: M1:3 or FEATURE: M2:1
   local task_id
-  task_id=$(sed -n '/------START: IMPLEMENTER------/,/------END: IMPLEMENTER------/p' "$impl_output" 2>/dev/null | grep -oE 'FEATURE:[[:space:]]*[M0-9]+:[0-9]+' | head -1 | sed 's/FEATURE:[[:space:]]*//')
+  task_id=$(sed -n '/------START: IMPLEMENTER------/,/------END: IMPLEMENTER------/p' "$impl_output" 2>/dev/null | grep -oE 'FEATURE:[[:space:]]*[M0-9]+:[0-9]+' | head -1 | sed 's/FEATURE:[[:space:]]*//') || task_id=""
   [ -z "$task_id" ] && return 0
   # Mark the unchecked line that contains this task id (e.g. "[ ] - M1:3- ...") as [x]
   if grep -q "^\[ \] - ${task_id}-" "$f" 2>/dev/null; then
     sed "s/^\[ \] - ${task_id}-/[x] - ${task_id}-/" "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
-  elif grep -q "^\[  \] - ${task_id}-" "$f" 2>/dev/null; then
+    ensure_plan_trailing_newline "$f"
+    return 0
+  fi
+  if grep -q "^\[  \] - ${task_id}-" "$f" 2>/dev/null; then
     sed "s/^\[  \] - ${task_id}-/[x] - ${task_id}-/" "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+  fi
+  ensure_plan_trailing_newline "$f"
+}
+
+# Write [IN_PROGRESS] to the first incomplete task line (concurrency=1).
+mark_first_incomplete_in_progress() {
+  local f="${1:-$PLAN_FILE}"
+  [ ! -f "$f" ] && return 0
+  local first_ln
+  first_ln=$(grep -n -m1 -E '^(\- \[ \] \*\*|\[  \] -|\[ \] -)' "$f" 2>/dev/null | cut -d: -f1) || first_ln=""
+  if [ -n "$first_ln" ]; then
+    sed "${first_ln}s/$/ [IN_PROGRESS]/" "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+    ensure_plan_trailing_newline "$f"
   fi
 }
 
-# Write [IN_PROGRESS] to the first incomplete task line so the file reflects "working on this task".
-# Call before running the implementer; extract-incomplete-tasks.sh will include it in the prompt.
-mark_first_incomplete_in_progress() {
-  local f="${1:-$PRD_FILE}"
+# Write [IN_PROGRESS]:[AGENT_01] ... [IN_PROGRESS]:[AGENT_N] to the first N incomplete task lines.
+# Call when CONCURRENCY > 1; each agent gets one assigned task.
+mark_next_n_incomplete_in_progress() {
+  local f="${1:-$PLAN_FILE}"
+  local n="${2:-1}"
   [ ! -f "$f" ] && return 0
-  local first_ln
-  first_ln=$(grep -n -m1 -E '^(\- \[ \] \*\*|\[  \] -|\[ \] -)' "$f" 2>/dev/null | cut -d: -f1)
-  if [ -n "$first_ln" ]; then
-    sed "${first_ln}s/$/ [IN_PROGRESS]/" "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
-  fi
+  [ "$n" -lt 1 ] && return 0
+  local line_nums
+  line_nums=$(grep -n -E '^(\- \[ \] \*\*|\[  \] -|\[ \] -)' "$f" 2>/dev/null | head -n "$n" | cut -d: -f1) || line_nums=""
+  [ -z "$line_nums" ] && return 0
+  local idx=1
+  local sed_expr=""
+  for ln in $line_nums; do
+    local agent_id
+    agent_id=$(printf 'AGENT_%02d' "$idx")
+    sed_expr="${sed_expr}${sed_expr:+;}${ln}s/\$/ [IN_PROGRESS]:[${agent_id}]/"
+    idx=$(( idx + 1 ))
+  done
+  sed "$sed_expr" "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+  ensure_plan_trailing_newline "$f"
 }
 
 # Bouncing bar spinner
@@ -375,11 +582,12 @@ extract_summary() {
   fi
   
   # Truncate at character limit, but try to end at a line boundary
-  if [ ${#section} -gt $max_chars ]; then
+    if [ ${#section} -gt $max_chars ]; then
     # Cut at max_chars, then find last newline to avoid mid-line cut
     local truncated="${section:0:$max_chars}"
-    local last_newline=$(echo "$truncated" | grep -bo $'\n' | tail -1 | cut -d: -f1)
-    
+    local last_newline
+    last_newline=$(echo "$truncated" | grep -bo $'\n' | tail -1 | cut -d: -f1) || last_newline=""
+
     if [ -n "$last_newline" ] && [ "$last_newline" -gt $((max_chars - 200)) ]; then
       section="${truncated:0:$last_newline}"
     else
@@ -395,43 +603,31 @@ extract_summary() {
 #═══════════════════════════════════════════════════════════════════════════════
 # HEADER
 #═══════════════════════════════════════════════════════════════════════════════
-initial_prd_status=$(verify_prd_completion "$PRD_FILE")
+initial_plan_status=$(verify_plan_completion "$PLAN_FILE")
+PLAN_BYTES=$(wc -c < "$PLAN_FILE" 2>/dev/null | tr -d ' ')
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 if [ "$SKIP_VALIDATION" = "true" ]; then
-  echo "🤖 Plan-an-go Pipeline - Implementer Only Mode"
+  echo "Plan-an-go · Implementer only (no validation)"
 else
-  echo "🤖 Plan-an-go Pipeline - 2-Agent System"
+  echo "Plan-an-go · 2-Agent (Implementer → Validator)"
 fi
-echo "   (7-step: Plan → Think → Research → Distill → Sub-tasks → Work → Validate; sub-agents when available)"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📦 Parent loops: $MAX_ITERATIONS"
-echo "🔄 Child loops (per agent): $MAX_CHILD_LOOPS"
-echo "📝 Log file: $LOG_FILE"
-echo "📢 Slack: $([ "$USE_SLACK" = "true" ] && echo "enabled (threads: $SLACK_USE_THREADS)" || echo "disabled")"
-echo "🔍 Validation: $([ "$SKIP_VALIDATION" = "true" ] && echo "DISABLED" || echo "enabled")"
-echo "📺 Streaming: $([ "$STREAM_OUTPUT" = "true" ] && echo "ENABLED (gray bg)" || echo "disabled")"
-echo "🤖 CLI: $CLI_BIN"
-[ -n "$TAIL_LOG" ] && echo "📄 Tail log: $TAIL_LOG (tail -f $TAIL_LOG in another terminal to watch current iteration)"
-echo "📋 PRD File: $PRD_FILE"
-echo "📋 PRD Status: $initial_prd_status"
-echo "⏰ Started: $(date '+%Y-%m-%d %H:%M:%S')"
-echo ""
-if [ "$SKIP_VALIDATION" = "true" ]; then
-  echo "Pipeline: IMPLEMENTER → LOG → SLACK (no validation)"
-else
-  echo "Pipeline: IMPLEMENTER → VALIDATOR → LOG → SLACK (validated, repeatable)"
-fi
-echo "⏸️  Press Ctrl+C to stop gracefully after current iteration"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Plan: $DISPLAY_PLAN (${PLAN_BYTES} B)  ·  Log: $DISPLAY_LOG  ·  CLI: $CLI_BIN"
+echo "  Loops: $MAX_ITERATIONS parent, $MAX_CHILD_LOOPS child  ·  Started $(date '+%Y-%m-%d %H:%M:%S')  ·  Plan: $initial_plan_status"
+slack_label="off"
+[ "$USE_SLACK" = "true" ] && slack_label="on" && [ "$SLACK_USE_THREADS" = "true" ] && slack_label="on (threads)"
+echo "  Slack: $slack_label  ·  Validation: $([ "$SKIP_VALIDATION" = "true" ] && echo "off" || echo "on")  ·  Stream: $([ "$STREAM_OUTPUT" = "true" ] && echo "on" || echo "off")"
+[ -n "$TAIL_LOG" ] && echo "  Tail: $TAIL_LOG (tail -f to watch)"
+echo "  Ctrl+C to stop after current iteration"
 echo ""
 
 # Create single parent thread for entire pipeline (if Slack enabled and threading enabled)
 if [ "$USE_SLACK" = "true" ]; then
   if [ "$SLACK_USE_THREADS" = "true" ] && command -v post_to_slack_get_ts &> /dev/null; then
-    PIPELINE_THREAD_TS=$(post_to_slack_get_ts "🚀 *Plan-an-go Pipeline Started* | Parent: $MAX_ITERATIONS | Child: $MAX_CHILD_LOOPS" 2>/dev/null || echo "")
+    PIPELINE_THREAD_TS=$(post_to_slack_get_ts "🚀 *Plan-an-go Pipeline Started* | Parent: $MAX_ITERATIONS | Child: $MAX_CHILD_LOOPS" 2>/dev/null) || true
     if [ -n "$PIPELINE_THREAD_TS" ]; then
       echo "🧵 Slack pipeline thread created: $PIPELINE_THREAD_TS"
+    else
+      echo "⚠️  Slack pipeline thread creation failed; posts will be in channel (no thread)." >&2
     fi
   else
     post_slack_message "🚀 *Plan-an-go Pipeline Started* | Parent: $MAX_ITERATIONS | Child: $MAX_CHILD_LOOPS"
@@ -452,15 +648,12 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
   iteration=$((iteration + 1))
   iter_start=$(date +%s)
   
-  echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "🔄 ITERATION $iteration of $MAX_ITERATIONS"
-  echo "⏰ $(date '+%Y-%m-%d %H:%M:%S')"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  
-  # Create temp files
-  impl_output=$(mktemp)
-  val_output=$(mktemp)
+  [ "$QUIET" != "true" ] && echo ""
+  [ "$QUIET" != "true" ] && echo "--- Iteration $iteration/$MAX_ITERATIONS ($(date '+%Y-%m-%d %H:%M:%S')) ---"
+
+  # Create temp files under tmp/
+  impl_output=$(mktemp "$TMP_DIR/forever-impl.XXXXXX")
+  val_output=$(mktemp "$TMP_DIR/forever-val.XXXXXX")
   if [ -n "$TAIL_LOG" ]; then
     echo "═══════════════════════════════════════════════════════════════════════════════" > "$TAIL_LOG"
     echo "ITERATION $iteration of $MAX_ITERATIONS — $(date '+%Y-%m-%d %H:%M:%S')" >> "$TAIL_LOG"
@@ -475,51 +668,77 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
   post_slack_message "🔄 *Iteration $iteration of $MAX_ITERATIONS*" "$PIPELINE_THREAD_TS"
   
   #─────────────────────────────────────────────────────────────────────────────
-  # PLAN FILE: Write [IN_PROGRESS] on the first incomplete task before implementer runs
+  # PLAN FILE: Mark incomplete task(s) for implementer(s)
   #─────────────────────────────────────────────────────────────────────────────
-  strip_in_progress_from_file "$PRD_FILE"
-  mark_first_incomplete_in_progress "$PRD_FILE"
+  strip_in_progress_from_file "$PLAN_FILE"
+  if [ "$CONCURRENCY" -eq 1 ]; then
+    mark_first_incomplete_in_progress "$PLAN_FILE"
+  else
+    mark_next_n_incomplete_in_progress "$PLAN_FILE" "$CONCURRENCY"
+  fi
   
   #─────────────────────────────────────────────────────────────────────────────
-  # STAGE 1: IMPLEMENTER AGENT
+  # STAGE 1: IMPLEMENTER AGENT(S)
   #─────────────────────────────────────────────────────────────────────────────
-  echo ""
-  echo "📝 STAGE 1: Running Implementer Agent..."
-  first_task=$(grep -m1 -E '^(\- \[ \] \*\*|\[  \] -|\[ \] -)' "$PRD_FILE" 2>/dev/null)
-  if [ -n "$first_task" ]; then
-    task_display="$first_task"
-    task_display="${task_display#- [ ] }"
-    task_display="${task_display#\[  \] - }"
-    task_display="${task_display#\[ \] - }"
-    echo "   Task: $task_display"
+  task_parts=()
+  while IFS= read -r task_line; do
+    [ -z "$task_line" ] && continue
+    task_parts+=("$(format_task_line_for_display "$task_line")")
+  done < <(grep -E '^(\- \[ \] \*\*|\[  \] -|\[ \] -)' "$PLAN_FILE" 2>/dev/null | head -n "$CONCURRENCY")
+  if [ "$QUIET" != "true" ]; then
+    if [ "$CONCURRENCY" -eq 1 ]; then
+      [ ${#task_parts[@]} -gt 0 ] && echo "Implementer: ${task_parts[0]}"
+    else
+      impl_task_list=$(IFS=' · '; echo "${task_parts[*]}")
+      [ -n "$impl_task_list" ] && echo "Implementer ($CONCURRENCY concurrent): $impl_task_list"
+    fi
+    echo ""
   fi
-  echo ""
-  if [ "$STREAM_OUTPUT" = "true" ]; then
-    # Streaming mode: show output in real-time
-    echo "📺 Streaming implementer output..."
-    if [ -n "$TAIL_LOG" ]; then
-      PRD_FILE=$PRD_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS STREAM_OUTPUT=true ./plan-an-go.sh 2>&1 | tee "$impl_output" >> "$TAIL_LOG"
+  
+  if [ "$CONCURRENCY" -eq 1 ]; then
+    if [ "$STREAM_OUTPUT" = "true" ]; then
+      [ "$QUIET" != "true" ] && echo "Streaming implementer..."
+      if [ -n "$TAIL_LOG" ]; then
+        PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS STREAM_OUTPUT=true "$IMPL_SCRIPT" 2>&1 | tee "$impl_output" >> "$TAIL_LOG"
+      else
+        PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS STREAM_OUTPUT=true "$IMPL_SCRIPT" 2>&1 | tee "$impl_output"
+      fi
+      impl_exit=${PIPESTATUS[0]}
     else
-      PRD_FILE=$PRD_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS STREAM_OUTPUT=true ./plan-an-go.sh 2>&1 | tee "$impl_output"
+      if [ -n "$TAIL_LOG" ]; then
+        impl_exit_file=$(mktemp "$TMP_DIR/forever-exit.XXXXXX")
+        { PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS "$IMPL_SCRIPT" 2>&1; echo $? > "$impl_exit_file"; } | tee "$impl_output" >> "$TAIL_LOG" &
+        impl_pid=$!
+        if [ "$QUIET" = "true" ]; then wait $impl_pid; else spinner_bounce $impl_pid "Implementer working"; wait $impl_pid; fi
+        impl_exit=$(cat "$impl_exit_file")
+        rm -f "$impl_exit_file"
+      else
+        PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS "$IMPL_SCRIPT" > "$impl_output" 2>&1 &
+        impl_pid=$!
+        if [ "$QUIET" = "true" ]; then wait $impl_pid; else spinner_bounce $impl_pid "Implementer working"; wait $impl_pid; fi
+        impl_exit=$?
+      fi
     fi
-    impl_exit=${PIPESTATUS[0]}
   else
-    # Batch mode: use spinner while capturing
-    if [ -n "$TAIL_LOG" ]; then
-      impl_exit_file=$(mktemp)
-      { PRD_FILE=$PRD_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS ./plan-an-go.sh 2>&1; echo $? > "$impl_exit_file"; } | tee "$impl_output" >> "$TAIL_LOG" &
-      impl_pid=$!
-      spinner_bounce $impl_pid "Implementer working"
-      wait $impl_pid
-      impl_exit=$(cat "$impl_exit_file")
-      rm -f "$impl_exit_file"
-    else
-      PRD_FILE=$PRD_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS ./plan-an-go.sh > "$impl_output" 2>&1 &
-      impl_pid=$!
-      spinner_bounce $impl_pid "Implementer working"
-      wait $impl_pid
-      impl_exit=$?
-    fi
+    # CONCURRENCY > 1: run N implementers in parallel (batch only)
+    impl_pids=()
+    impl_outputs=()
+    for i in $(seq 1 "$CONCURRENCY"); do
+      agent_id=$(printf 'AGENT_%02d' "$i")
+      out_f=$(mktemp "$TMP_DIR/forever-agent.XXXXXX")
+      impl_outputs+=("$out_f")
+      PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS PLAN_AN_GO_AGENT_ID="$agent_id" "$IMPL_SCRIPT" > "$out_f" 2>&1 &
+      impl_pids+=($!)
+    done
+    impl_exit=0
+    for p in "${impl_pids[@]}"; do
+      wait "$p" || impl_exit=$?
+    done
+    for f in "${impl_outputs[@]}"; do
+      [ -f "$f" ] && mark_task_complete_from_implementer_output "$f" "$PLAN_FILE"
+    done
+    cat "${impl_outputs[@]}" > "$impl_output" 2>/dev/null || true
+    rm -f "${impl_outputs[@]}"
   fi
   
   impl_result=$(cat "$impl_output")
@@ -528,23 +747,18 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
   IMPL_FAILED=false
   IMPL_FAIL_REASON=""
   
-  # Check for credit exhaustion
   if echo "$impl_result" | grep -q "Credit balance is too low"; then
     IMPL_FAILED=true
     IMPL_FAIL_REASON="CREDITS_EXHAUSTED"
-  # Check for empty output (timeout or silent failure)
   elif [ -z "$impl_result" ] || [ ${#impl_result} -lt 50 ]; then
     IMPL_FAILED=true
     IMPL_FAIL_REASON="EMPTY_OUTPUT"
-  # Check for ERROR in structured output
   elif echo "$impl_result" | grep -q "^ERROR:"; then
     IMPL_FAILED=true
     IMPL_FAIL_REASON="AGENT_ERROR"
-  # Check for VERDICT: FAILED
   elif echo "$impl_result" | grep -q "VERDICT: FAILED"; then
     IMPL_FAILED=true
     IMPL_FAIL_REASON="VALIDATION_FAILED"
-  # Check for non-zero exit code
   elif [ $impl_exit -ne 0 ]; then
     IMPL_FAILED=true
     IMPL_FAIL_REASON="EXIT_CODE_$impl_exit"
@@ -552,34 +766,25 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
   
   if [ "$IMPL_FAILED" = "true" ]; then
     echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "❌ IMPLEMENTER FAILED - $IMPL_FAIL_REASON"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Implementer failed ($IMPL_FAIL_REASON). First 10 lines:"
+    echo "$impl_result" | head -10 | sed 's/^/  /'
+    echo "Full output: $DISPLAY_LOG"
     echo ""
-    echo "Output received (${#impl_result} chars):"
-    echo "$impl_result" | head -20
-    echo ""
-    
-    # Log failure
     echo "" >> "$LOG_FILE"
     echo "═══════════════════════════════════════════════════════════════════════════════" >> "$LOG_FILE"
     echo "ITERATION $iteration - FAILED ($IMPL_FAIL_REASON)" >> "$LOG_FILE"
     echo "═══════════════════════════════════════════════════════════════════════════════" >> "$LOG_FILE"
     echo "$impl_result" >> "$LOG_FILE"
-    
-    # Post to Slack
     post_slack_message "❌ *IMPLEMENTER FAILED* - $IMPL_FAIL_REASON at iteration $iteration" "$PIPELINE_THREAD_TS"
-    
     rm -f "$impl_output" "$val_output"
     $SCRIPT_EXIT 1
   fi
   
-  # If implementer ran read-only and reported success, mark that task [x] so pipeline advances
-  mark_task_complete_from_implementer_output "$impl_output" "$PRD_FILE"
-  # Remove [IN_PROGRESS] from any task line the implementer marked complete ([x])
-  strip_in_progress_from_completed_lines "$PRD_FILE"
+  if [ "$CONCURRENCY" -eq 1 ]; then
+    mark_task_complete_from_implementer_output "$impl_output" "$PLAN_FILE"
+  fi
+  strip_in_progress_from_completed_lines "$PLAN_FILE"
   
-  # Log to file
   echo "" >> "$LOG_FILE"
   echo "═══════════════════════════════════════════════════════════════════════════════" >> "$LOG_FILE"
   echo "ITERATION $iteration - $(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
@@ -587,15 +792,12 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
   echo "" >> "$LOG_FILE"
   echo "$impl_result" >> "$LOG_FILE"
   
-  # Display (only if not streaming, since tee already showed it)
-  if [ "$STREAM_OUTPUT" != "true" ]; then
+  if [ "$STREAM_OUTPUT" != "true" ] && [ "$QUIET" != "true" ]; then
     echo ""
     echo "$impl_result"
   fi
   
-  # Slack: Post implementer update to thread (wrapped in code block)
   impl_summary=$(extract_summary "$impl_result" "IMPLEMENTER")
-  # Remove all backticks to prevent breaking the Slack code block
   impl_summary=$(printf '%s' "$impl_summary" | tr -d '`')
   impl_slack_msg=$(printf '📝 *IMPLEMENTER*\n```\n%s\n```' "$impl_summary")
   post_slack_message "$impl_slack_msg" "$PIPELINE_THREAD_TS"
@@ -604,9 +806,7 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
   # STAGE 2: VALIDATOR AGENT (skipped with --no-validate)
   #─────────────────────────────────────────────────────────────────────────────
   if [ "$SKIP_VALIDATION" = "true" ]; then
-    echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "⏭️  STAGE 2: Skipping Validator (--no-validate)"
+    [ "$VERBOSE" = "true" ] && echo "Validator: skipped (--no-validate)"
     val_result=""
     val_exit=0
   else
@@ -615,34 +815,28 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
       echo "--- VALIDATOR ---" >> "$TAIL_LOG"
       echo "" >> "$TAIL_LOG"
     fi
-    echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🔍 STAGE 2: Running Validator Agent..."
-    
+    [ "$VERBOSE" = "true" ] && echo "Validator: running..."
     if [ "$STREAM_OUTPUT" = "true" ]; then
-      # Streaming mode: show output in real-time
-      echo "📺 Streaming validator output..."
+      [ "$QUIET" != "true" ] && echo "Streaming validator..."
       if [ -n "$TAIL_LOG" ]; then
-        PRD_FILE=$PRD_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS STREAM_OUTPUT=true ./plan-an-go-validate.sh "$impl_output" 2>&1 | tee "$val_output" >> "$TAIL_LOG"
+        PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS STREAM_OUTPUT=true "$VAL_SCRIPT" "$impl_output" 2>&1 | tee "$val_output" >> "$TAIL_LOG"
       else
-        PRD_FILE=$PRD_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS STREAM_OUTPUT=true ./plan-an-go-validate.sh "$impl_output" 2>&1 | tee "$val_output"
+        PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS STREAM_OUTPUT=true "$VAL_SCRIPT" "$impl_output" 2>&1 | tee "$val_output"
       fi
       val_exit=${PIPESTATUS[0]}
     else
       # Batch mode: use spinner while capturing
       if [ -n "$TAIL_LOG" ]; then
-        val_exit_file=$(mktemp)
-        { PRD_FILE=$PRD_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS ./plan-an-go-validate.sh "$impl_output" 2>&1; echo $? > "$val_exit_file"; } | tee "$val_output" >> "$TAIL_LOG" &
+        val_exit_file=$(mktemp "$TMP_DIR/forever-val-exit.XXXXXX")
+        { PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS "$VAL_SCRIPT" "$impl_output" 2>&1; echo $? > "$val_exit_file"; } | tee "$val_output" >> "$TAIL_LOG" &
         val_pid=$!
-        spinner_bounce $val_pid "Validator auditing"
-        wait $val_pid
+        if [ "$QUIET" = "true" ]; then wait $val_pid; else spinner_bounce $val_pid "Validator auditing"; wait $val_pid; fi
         val_exit=$(cat "$val_exit_file")
         rm -f "$val_exit_file"
       else
-        PRD_FILE=$PRD_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS ./plan-an-go-validate.sh "$impl_output" > "$val_output" 2>&1 &
+        PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS "$VAL_SCRIPT" "$impl_output" > "$val_output" 2>&1 &
         val_pid=$!
-        spinner_bounce $val_pid "Validator auditing"
-        wait $val_pid
+        if [ "$QUIET" = "true" ]; then wait $val_pid; else spinner_bounce $val_pid "Validator auditing"; wait $val_pid; fi
         val_exit=$?
       fi
     fi
@@ -652,10 +846,8 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
     # Check for credit exhaustion
     if echo "$val_result" | grep -q "Credit balance is too low"; then
       echo ""
-      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      echo "❌ CREDITS EXHAUSTED - Stopping pipeline"
-      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      
+      echo "--- Credits exhausted - stopping ---"
+      echo "  Log: $DISPLAY_LOG"
       # Post to Slack
       post_slack_message "❌ *CREDITS EXHAUSTED* - Pipeline stopped at iteration $iteration" "$PIPELINE_THREAD_TS"
       
@@ -667,8 +859,8 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
     echo "" >> "$LOG_FILE"
     echo "$val_result" >> "$LOG_FILE"
     
-    # Display (only if not streaming, since tee already showed it)
-    if [ "$STREAM_OUTPUT" != "true" ]; then
+    # Display (only if not streaming and not quiet, since tee already showed it when streaming)
+    if [ "$STREAM_OUTPUT" != "true" ] && [ "$QUIET" != "true" ]; then
       echo ""
       echo "$val_result"
     fi
@@ -682,9 +874,7 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
     
     # Check for errors
     if [ $val_exit -ne 0 ]; then
-      echo ""
-      echo "❌ Validator agent failed with exit code $val_exit"
-      
+      echo "Validator failed (exit $val_exit). Continuing in 5s..."
       post_slack_message "❌ Validator failed (exit: $val_exit)" "$PIPELINE_THREAD_TS"
       
       rm -f "$impl_output" "$val_output"
@@ -696,61 +886,53 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
   #─────────────────────────────────────────────────────────────────────────────
   # STAGE 3: PROCESS RESULTS
   #─────────────────────────────────────────────────────────────────────────────
-  echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  
   iter_end=$(date +%s)
   iter_duration=$((iter_end - iter_start))
   total_elapsed=$((iter_end - start_time))
-  
+
   # Extract metrics from validator output (POSIX-compatible, works on macOS and Linux)
   if [ "$SKIP_VALIDATION" = "true" ]; then
-    # Default values when validation is skipped
     confidence="N/A"
     verdict="SKIPPED"
     status="CONTINUE"
     mode="NO_VALIDATION"
   else
-    # Try TASK_VALIDATION format first, then CHECK_PHASE format
     confidence=$(echo "$val_result" | sed -n 's/.*CONFIDENCE SCORE: \([0-9]*\).*/\1/p' | head -1)
     [ -z "$confidence" ] && confidence=$(echo "$val_result" | sed -n 's/.*MILESTONE CONFIDENCE SCORE: \([0-9]*\).*/\1/p' | head -1)
     confidence="${confidence:-?}"
-    
     verdict=$(echo "$val_result" | sed -n 's/.*VERDICT: \([A-Z_]*\).*/\1/p' | head -1)
     [ -z "$verdict" ] && verdict=$(echo "$val_result" | sed -n 's/.*GATE DECISION: \([A-Z_]*\).*/\1/p' | head -1)
     verdict="${verdict:-UNKNOWN}"
-    
     status=$(echo "$val_result" | sed -n 's/.*<status>\([A-Z_]*\)<\/status>.*/\1/p' | head -1)
     status="${status:-CONTINUE}"
-    
     mode=$(echo "$val_result" | sed -n 's/.*MODE: \([A-Z_]*\).*/\1/p' | head -1)
     mode="${mode:-TASK_VALIDATION}"
   fi
-  
-  # Calculate ETA
+
   avg_per_iter=$((total_elapsed / iteration))
   remaining=$((MAX_ITERATIONS - iteration))
   eta=$((avg_per_iter * remaining))
-  
-  # Get current PRD status for display
-  current_prd_status=$(verify_prd_completion "$PRD_FILE")
-  
-  echo "📊 ITERATION $iteration SUMMARY"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "🔧 Mode: $mode"
-  echo "⏱️  Duration: $(format_duration $iter_duration)"
-  echo "📈 Confidence: $confidence/10"
-  echo "✅ Verdict: $verdict"
-  echo "📌 Status: $status"
-  echo "📋 PRD: $current_prd_status"
-  echo "⏳ Total elapsed: $(format_duration $total_elapsed)"
-  echo "📊 Avg/iteration: ${avg_per_iter}s"
-  echo "⏳ ETA remaining: $(format_duration $eta)"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  current_plan_status=$(verify_plan_completion "$PLAN_FILE")
+
+  if [ "$VERBOSE" = "true" ]; then
+    echo ""
+    echo "--- Iteration $iteration summary ---"
+    echo "  Mode: $mode  ·  Duration: $(format_duration $iter_duration)  ·  Confidence: $confidence/10  ·  Verdict: $verdict"
+    echo "  Status: $status  ·  Plan: $current_plan_status"
+    echo "  Elapsed: $(format_duration $total_elapsed)  ·  Avg/iter: ${avg_per_iter}s  ·  ETA: $(format_duration $eta)"
+  elif [ "$QUIET" != "true" ]; then
+    # One line: iteration, duration, plan, verdict (when validation on), ETA
+    if [ "$SKIP_VALIDATION" = "true" ]; then
+      echo "Iteration $iteration · $(format_duration_short $iter_duration) · Plan: $current_plan_status · ETA: $(format_duration_short $eta)"
+    else
+      echo "Iteration $iteration · $(format_duration_short $iter_duration) · Plan: $current_plan_status · Verdict: $verdict · ETA: $(format_duration_short $eta)"
+    fi
+  fi
   
   # Play completion sound
   play_sound
-  
+  play_tts_after_task "$impl_output" "$val_output" "$iteration" "$confidence" "$verdict"
+
   #─────────────────────────────────────────────────────────────────────────────
   # SLACK: Final summary (thread reply or standalone)
   #─────────────────────────────────────────────────────────────────────────────
@@ -797,36 +979,31 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
   rm -f "$impl_output" "$val_output"
   
   # Remove [IN_PROGRESS] from any task line that was marked complete ([x])
-  strip_in_progress_from_completed_lines "$PRD_FILE"
+  strip_in_progress_from_completed_lines "$PLAN_FILE"
   
   #─────────────────────────────────────────────────────────────────────────────
   # POST-ITERATION: PLAN STATUS CHECK
   #─────────────────────────────────────────────────────────────────────────────
-  echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "📋 PLAN STATUS (after iteration $iteration)"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
   PLAN_CHECK_SCRIPT="$SCRIPT_DIR/plan-an-go-plan-check.sh"
-  if [ "$PRD_FILE" = "PRD.md" ]; then
-    PLAN_CHECK_FILE="$SCRIPT_DIR/PLAN.md"
-  else
-    PLAN_CHECK_FILE="$PRD_FILE"
-  fi
+  PLAN_CHECK_FILE="$PLAN_FILE"
   if [ -f "$PLAN_CHECK_SCRIPT" ]; then
-    if [ -x "$PLAN_CHECK_SCRIPT" ]; then
-      "$PLAN_CHECK_SCRIPT" "$PLAN_CHECK_FILE"
+    if [ "$VERBOSE" = "true" ]; then
+      echo ""
+      if [ -x "$PLAN_CHECK_SCRIPT" ]; then
+        "$PLAN_CHECK_SCRIPT" "$PLAN_CHECK_FILE"
+      else
+        bash "$PLAN_CHECK_SCRIPT" "$PLAN_CHECK_FILE"
+      fi
+      plan_check_exit=$?
+      [ $plan_check_exit -ne 0 ] && echo "Plan check reported issues (exit $plan_check_exit). Pipeline continues."
     else
-      echo "⚠️  Plan check script is not executable: $PLAN_CHECK_SCRIPT"
-      echo "    Running via bash (you can also: chmod +x \"$PLAN_CHECK_SCRIPT\")"
-      bash "$PLAN_CHECK_SCRIPT" "$PLAN_CHECK_FILE"
+      # One-line status already shown in iteration summary; run check silently for exit code
+      if [ -x "$PLAN_CHECK_SCRIPT" ]; then
+        "$PLAN_CHECK_SCRIPT" "$PLAN_CHECK_FILE" >/dev/null 2>&1 || true
+      else
+        bash "$PLAN_CHECK_SCRIPT" "$PLAN_CHECK_FILE" >/dev/null 2>&1 || true
+      fi
     fi
-    plan_check_exit=$?
-    if [ $plan_check_exit -ne 0 ]; then
-      echo "⚠️  Plan check reported issues (exit $plan_check_exit). Pipeline will continue."
-    fi
-  else
-    echo "⚠️  Plan check script not found: $PLAN_CHECK_SCRIPT"
   fi
 
   #─────────────────────────────────────────────────────────────────────────────
@@ -848,29 +1025,29 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
     status="CONTINUE"
   fi
   
-  # Verify LLM's completion claim against actual PRD file state
+  # Verify LLM's completion claim against actual plan file state
   if [ "$status" = "ALL_TASKS_COMPLETE" ]; then
-    prd_status=$(verify_prd_completion "$PRD_FILE")
+    plan_status=$(verify_plan_completion "$PLAN_FILE")
     
-    if [ "$prd_status" != "COMPLETE" ]; then
+    if [ "$plan_status" != "COMPLETE" ]; then
       echo ""
-      echo "⚠️  LLM CLAIMED ALL_TASKS_COMPLETE BUT PRD.md SHOWS: $prd_status"
+      echo "⚠️  LLM CLAIMED ALL_TASKS_COMPLETE BUT PLAN SHOWS: $plan_status"
       echo "⚠️  Overriding status to CONTINUE - false positive detected"
       echo ""
       status="CONTINUE"
       
       # Log the false positive
-      echo "FALSE POSITIVE DETECTED: LLM claimed ALL_TASKS_COMPLETE but PRD.md shows $prd_status" >> "$LOG_FILE"
+      echo "FALSE POSITIVE DETECTED: LLM claimed ALL_TASKS_COMPLETE but plan shows $plan_status" >> "$LOG_FILE"
 
       # Notify Slack about the false positive
       if [ "$USE_SLACK" = "true" ]; then
         if [ -n "$PIPELINE_THREAD_TS" ] && command -v post_to_slack_thread &> /dev/null; then
           post_to_slack_thread "⚠️ *False Positive Detected*
-LLM claimed ALL_TASKS_COMPLETE but PRD.md shows: $prd_status
+LLM claimed ALL_TASKS_COMPLETE but plan shows: $plan_status
 Continuing pipeline..." "$PIPELINE_THREAD_TS" 2>/dev/null || true
         elif command -v post_to_slack &> /dev/null; then
           post_to_slack "⚠️ *False Positive Detected*
-LLM claimed ALL_TASKS_COMPLETE but PRD.md shows: $prd_status
+LLM claimed ALL_TASKS_COMPLETE but plan shows: $plan_status
 Continuing pipeline..." 2>/dev/null || true
         fi
       fi
@@ -879,15 +1056,10 @@ Continuing pipeline..." 2>/dev/null || true
   
   if [ "$status" = "ALL_TASKS_COMPLETE" ]; then
     echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🎉 ALL TASKS COMPLETE!"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "📊 Total iterations: $iteration"
-    echo "⏱️  Total time: $(format_duration $total_elapsed)"
-    echo "⏰ Finished: $(date '+%Y-%m-%d %H:%M:%S')"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "--- All tasks complete ---"
+    echo "  Iterations: $iteration  ·  Time: $(format_duration_short $total_elapsed)  ·  Finished $(date '+%Y-%m-%d %H:%M:%S')"
     
-    strip_in_progress_from_file "$PRD_FILE"
+    strip_in_progress_from_file "$PLAN_FILE"
     
     complete_msg="🎉 *ALL TASKS COMPLETE!*
 
@@ -903,6 +1075,7 @@ Finished: $(date '+%Y-%m-%d %H:%M:%S')"
       fi
     fi
 
+    clean_workspace_after_exit
     $SCRIPT_EXIT 0
   fi
   
@@ -911,17 +1084,10 @@ Finished: $(date '+%Y-%m-%d %H:%M:%S')"
   #─────────────────────────────────────────────────────────────────────────────
   if [ "$STOP_REQUESTED" = "true" ]; then
     total_elapsed=$(($(date +%s) - start_time))
-    
-    strip_in_progress_from_file "$PRD_FILE"
-    
+    strip_in_progress_from_file "$PLAN_FILE"
     echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🛑 MANUALLY STOPPED"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "📊 Completed iterations: $iteration"
-    echo "⏱️  Total time: $(format_duration $total_elapsed)"
-    echo "⏰ Stopped: $(date '+%Y-%m-%d %H:%M:%S')"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "--- Stopped (Ctrl+C) ---"
+    echo "  Iterations: $iteration/$MAX_ITERATIONS  ·  Time: $(format_duration_short $total_elapsed)  ·  Stopped $(date '+%Y-%m-%d %H:%M:%S')"
     
     # Post final message to thread if available, otherwise standalone
     stop_msg="🛑 *Manually Stopped*
@@ -938,9 +1104,10 @@ Stopped: $(date '+%Y-%m-%d %H:%M:%S')"
       fi
     fi
 
+    clean_workspace_after_exit
     $SCRIPT_EXIT 0
   fi
-  
+
   # Brief pause between iterations
   sleep 2
 done
@@ -950,7 +1117,7 @@ done
 #═══════════════════════════════════════════════════════════════════════════════
 total_elapsed=$(($(date +%s) - start_time))
 
-strip_in_progress_from_file "$PRD_FILE"
+strip_in_progress_from_file "$PLAN_FILE"
 
 # Safety check: If script completed too quickly, something is wrong
 if [ "$total_elapsed" -lt 5 ] && [ "$iteration" -ge "$MAX_ITERATIONS" ]; then
@@ -964,13 +1131,8 @@ if [ "$total_elapsed" -lt 5 ] && [ "$iteration" -ge "$MAX_ITERATIONS" ]; then
 fi
 
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "⏸️  MAX ITERATIONS REACHED ($MAX_ITERATIONS)"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "⏱️  Total time: $(format_duration $total_elapsed)"
-echo "📝 Full log: $LOG_FILE"
-echo "⏰ Finished: $(date '+%Y-%m-%d %H:%M:%S')"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "--- Max iterations reached ($MAX_ITERATIONS) ---"
+echo "  Time: $(format_duration_short $total_elapsed)  ·  Log: $DISPLAY_LOG  ·  Finished $(date '+%Y-%m-%d %H:%M:%S')"
 
 max_iter_msg="⏸️ *Max iterations reached* ($MAX_ITERATIONS)
 
@@ -984,3 +1146,5 @@ if [ "$USE_SLACK" = "true" ]; then
     post_to_slack "$max_iter_msg" 2>/dev/null || true
   fi
 fi
+
+clean_workspace_after_exit

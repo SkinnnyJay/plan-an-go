@@ -1,0 +1,79 @@
+{
+    "agents": [
+        {
+            "name": "agent-01",
+            "description": "Implementer",
+            "model": "gpt-4o-mini",
+            "cli": "codex",
+            "cli_flags": "--yolo",
+            "prompt_template_file": "./agents/prompts/prompt_template.md",
+            "system_prompt_file": "./agents/prompts/system_prompt.md",
+            "user_prompt_file": "./agents/prompts/user_prompt.md",
+            "mcp_file": "./agents/mcps/mcp.json"
+        },
+        {
+            "name": "agent-02",
+            "description": "Validator",
+            "model": "gpt-4o-mini",
+            "cli": "codex",
+            "cli_flags": "--yolo",
+            "prompt_template_file": "./agents/prompts/prompt_template.md",
+            "system_prompt_file": "./agents/prompts/system_prompt.md",
+            "user_prompt_file": "./agents/prompts/user_prompt.md",
+            "mcp_file": "./agents/mcps/mcp.json"
+        },
+        {
+            "name": "agent-03",
+            "description": "Thinker",
+            "model": "gpt-4o-mini",
+            "cli": "claude",
+            "cli_flags": "--allow-dangerously-skip-permissions",
+            "prompt_template_file": "./agents/prompts/prompt_template.md",
+            "system_prompt_file": "./agents/prompts/system_prompt.md",
+            "user_prompt_file": "./agents/prompts/user_prompt.md",
+            "mcp_file": "./agents/mcps/mcp.json"
+        }
+    ],
+    "swarm": [
+        {
+            "name": "swarm-01",
+            "description": "Swarm of agents",
+            "parent_agent": "agent-01",
+            "sub_agents": ["sub-agent-01", "sub-agent-02"],
+            "prompt_template_file": "./agents/prompts/prompt_template.md",
+            "system_prompt_file": "./agents/prompts/system_prompt.md",
+            "user_prompt_file": "./agents/prompts/user_prompt.md",
+            "cli": "codex",
+            "cli_flags": "--yolo",
+            "mcp_file": "./agents/mcps/swarm-01-mcp.json"
+        }
+    ],
+    "sub_agents": [
+        {
+            "name": "sub-agent-01",
+            "description": "Thinker",
+            "model": "gpt-4o-mini",
+            "cli": "claude",
+            "cli_flags": "--allow-dangerously-skip-permissions",
+            "prompt_template_file": "./agents/prompts/sub-agent-01-prompt_template.md",
+            "system_prompt_file": "./agents/prompts/sub-agent-01-system_prompt.md",
+            "user_prompt_file": "./agents/prompts/sub-agent-01-user_prompt.md",
+            "mcp_file": "./agents/mcps/sub-agent-01-mcp.json"
+        },
+        {
+            "name": "sub-agent-02",
+            "description": "Research",
+            "model": "gpt-4o-mini",
+            "cli": "codex",
+            "cli_flags": "--yolo",
+            "prompt_template_file": "./agents/prompts/sub-agent-02-prompt_template.md",
+            "system_prompt_file": "./agents/prompts/sub-agent-02-system_prompt.md",
+            "user_prompt_file": "./agents/prompts/sub-agent-02-user_prompt.md",
+            "mcp_file": "./agents/mcps/sub-agent-02-mcp.json"
+        }
+    ],
+    "sub_agent_config": {
+        "default_cli": "codex",
+        "default_cli_flags": "--yolo"
+    }
+}

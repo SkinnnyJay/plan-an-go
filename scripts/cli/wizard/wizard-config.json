@@ -1,0 +1,45 @@
+{
+  "steps": [
+    {
+      "id": "prd",
+      "title": "PRD output",
+      "questions": [
+        {
+          "id": "prd_path",
+          "prompt": "PRD file path or name (default: PRD.md)",
+          "type": "text",
+          "default": "PRD.md"
+        },
+        {
+          "id": "prd_prompt",
+          "prompt": "Product or feature description (prompt for PRD)",
+          "type": "text",
+          "default": ""
+        },
+        {
+          "id": "cli",
+          "prompt": "CLI to use for generation",
+          "type": "select",
+          "options": ["claude", "codex", "cursor-agent"],
+          "default": "claude"
+        }
+      ]
+    },
+    {
+      "id": "launch",
+      "questions": [
+        {
+          "id": "plan_path",
+          "prompt": "Plan file path for runner (default: PLAN.md)",
+          "type": "text",
+          "default": "PLAN.md"
+        }
+      ]
+    }
+  ],
+  "defaults": {
+    "prd_path": "PRD.md",
+    "plan_path": "PLAN.md",
+    "cli": "claude"
+  }
+}

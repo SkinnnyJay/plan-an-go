@@ -33,6 +33,7 @@ Use this structure so downstream scripts (e.g. `plan-an-go-plan-check.sh`, `plan
 ### Task format
 
 - Each task is a single line: checkbox, then task ID, then description.
+- **Break work into granular, actionable tasks.** One concrete step per task; use subtasks (M<n>:<id>.<sub>) for multi-part steps. Be specific: include paths, artifact names, or measurable behavior (e.g. "Add GET /users in src/routes/users.ts", "Write 1–10 to ./test.txt, one per line").
 - **Checkbox:** `[ ]` = incomplete, `[x]` = complete. Use only these two forms.
 - **Task ID:** `M<n>:<id>` for top-level tasks, or `M<n>:<id>.<sub>` for subtasks (e.g. `M1:1`, `M1:2.1`).
 - **Pattern:** `[ ] - M<n>:<id>- Short description` or `[x] - M<n>:<id>- Short description`
@@ -62,12 +63,12 @@ Example structure (task lines must start with `[ ]` or `[x]` so scripts can pars
 
 ## 100% success criteria
 
-List the conditions that must all be true for the plan to be considered **100% complete**. These are the gates the implementer and validator use to decide “done.”
+List **testable, verifiable** conditions that must all be true for the plan to be considered **100% complete**. The implementer and validator use these to decide “done.” Every major deliverable should have at least one criterion. Include: “All tasks in this PLAN are marked [x].”
 
 - Criterion 1: e.g. “All tasks marked [x] in this PLAN.”
-- Criterion 2: e.g. “All automated tests pass (npm run test).”
-- Criterion 3: e.g. “Documentation updated and reviewed.”
-- … (add as many as needed)
+- Criterion 2: e.g. “File ./out.txt exists and contains exactly 10 lines.”
+- Criterion 3: e.g. “npm run test passes.”
+- … (add as many as needed; keep concrete and checkable)
 
 ---
 

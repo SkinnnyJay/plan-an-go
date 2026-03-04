@@ -10,7 +10,7 @@
 [x] - M1:3- Task three [AGENT_03]
 
 **M2:0 - Second milestone**
-[ ] - M2:1- Another task
+[x] - M2:1- Another task [AGENT_01]
 
 ---
 

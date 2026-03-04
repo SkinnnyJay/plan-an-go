@@ -1,0 +1,234 @@
+#!/usr/bin/env bash
+# plan-an-go — Entry script: resolves root (--root, .env PLAN_AN_GO_ROOT, or script repo) and runs subcommands.
+# Globally runnable via npm (npm run plan-an-go, npm run plan-an-go-forever, etc.) or after npm link / npm i -g.
+#
+# Root resolution (operating path):
+#   1. --root PATH   (explicit arg)
+#   2. PLAN_AN_GO_ROOT in .env (loaded from script repo root)
+#   3. Directory containing this script's repo (parent of scripts/)
+#
+# Usage:
+#   plan-an-go [--root PATH] [:<subcommand>| <subcommand>] [args...]
+#   Subcommands: run | forever | validate | task-watcher | planner | prd | prd-from-plan | wizard | onboard | reset | file-watch | slack-update | setup | install-clis | auth-cli | verify
+#   Alias form: :forever, :validate, etc. (e.g. plan-an-go :forever)
+#
+# Examples (from any directory):
+#   plan-an-go forever -- --slack-enable
+#   plan-an-go --root /path/to/project forever -- --plan PLAN.md
+#   npm run plan-an-go-forever   (uses package.json scripts; root = repo where npm is run)
+
+set -e
+ENTRY_SCRIPT="${BASH_SOURCE[0]}"
+SCRIPT_DIR="$(cd "$(dirname "$ENTRY_SCRIPT")" && pwd)"
+# Repo root = directory that contains the scripts/ folder
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+ROOT_ARG=""
+REST_ARGS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --root=*)
+      ROOT_ARG="${1#*=}"
+      shift
+      ;;
+    --root)
+      ROOT_ARG="$2"
+      shift 2
+      ;;
+    *)
+      REST_ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+# Load .env from repo root so PLAN_AN_GO_ROOT can override default root
+if [ -f "$REPO_ROOT/.env" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  . "$REPO_ROOT/.env"
+  set +a
+fi
+
+# Resolve operating root: --root arg > .env PLAN_AN_GO_ROOT > repo root
+if [ -n "$ROOT_ARG" ]; then
+  PLAN_AN_GO_ROOT="$(cd "$ROOT_ARG" && pwd)"
+elif [ -n "$PLAN_AN_GO_ROOT" ]; then
+  PLAN_AN_GO_ROOT="$(cd "$PLAN_AN_GO_ROOT" && pwd)"
+else
+  PLAN_AN_GO_ROOT="$REPO_ROOT"
+fi
+
+export PLAN_AN_GO_ROOT
+
+SUBCMD="${REST_ARGS[0]:-}"
+# Allow :<command> alias (e.g. plan-an-go :forever)
+if [[ "$SUBCMD" == :* ]]; then
+  SUBCMD="${SUBCMD#:}"
+fi
+SUB_ARGS=("${REST_ARGS[@]:1}")
+
+# Parse --out-dir for run/forever/planner/prd (write to a specific directory instead of ./)
+OUT_DIR_ARG=""
+OUT_DIR_ABS=""
+FINAL_SUB_ARGS=()
+PREV_SUB=""
+for a in "${SUB_ARGS[@]}"; do
+  if [ "$a" = "--out-dir" ]; then
+    PREV_SUB="$a"
+    continue
+  fi
+  if [ "$PREV_SUB" = "--out-dir" ]; then
+    OUT_DIR_ARG="$a"
+    PREV_SUB=""
+    continue
+  fi
+  case "$a" in
+    --out-dir=*)
+      OUT_DIR_ARG="${a#*=}"
+      ;;
+    *)
+      FINAL_SUB_ARGS+=("$a")
+      PREV_SUB="$a"
+      ;;
+  esac
+done
+if [ -n "$OUT_DIR_ARG" ]; then
+  OUT_DIR_ABS="$(cd "$PLAN_AN_GO_ROOT" && mkdir -p "$OUT_DIR_ARG" && cd "$OUT_DIR_ARG" && pwd)"
+fi
+
+# Build dispatch args: for run/forever, --out-dir becomes --workspace; for planner/prd, default --out
+DISPATCH_ARGS=("${FINAL_SUB_ARGS[@]}")
+case "$SUBCMD" in
+  run|forever)
+    if [ -n "$OUT_DIR_ABS" ]; then
+      DISPATCH_ARGS=(--workspace "$OUT_DIR_ABS" "${DISPATCH_ARGS[@]}")
+    fi
+    ;;
+  planner)
+    if [ -n "$OUT_DIR_ABS" ]; then
+      HAS_OUT=false
+      for a in "${FINAL_SUB_ARGS[@]}"; do
+        [ "$a" = "--out" ] && HAS_OUT=true
+        [ "${a#--out=}" != "$a" ] && HAS_OUT=true
+      done
+      [ "$HAS_OUT" = "false" ] && DISPATCH_ARGS=(--out "$OUT_DIR_ABS/PLAN.md" "${DISPATCH_ARGS[@]}")
+    fi
+    ;;
+  prd)
+    if [ -n "$OUT_DIR_ABS" ]; then
+      HAS_OUT=false
+      for a in "${FINAL_SUB_ARGS[@]}"; do
+        [ "$a" = "--out" ] && HAS_OUT=true
+        [ "${a#--out=}" != "$a" ] && HAS_OUT=true
+      done
+      [ "$HAS_OUT" = "false" ] && DISPATCH_ARGS=(--out "$OUT_DIR_ABS/PRD.md" "${DISPATCH_ARGS[@]}")
+    fi
+    ;;
+  prd-from-plan)
+    if [ -n "$OUT_DIR_ABS" ]; then
+      HAS_PRD=false
+      for a in "${FINAL_SUB_ARGS[@]}"; do
+        [ "$a" = "--prd" ] && HAS_PRD=true
+        [ "$a" = "--out" ] && HAS_PRD=true
+        [ "${a#--prd=}" != "$a" ] && HAS_PRD=true
+        [ "${a#--out=}" != "$a" ] && HAS_PRD=true
+      done
+      [ "$HAS_PRD" = "false" ] && DISPATCH_ARGS=(--prd "$OUT_DIR_ABS/PRD.md" "${DISPATCH_ARGS[@]}")
+    fi
+    ;;
+  *) ;;
+esac
+
+# Subcommand → script mapping
+case "$SUBCMD" in
+  prd-from-plan)
+    exec "$SCRIPT_DIR/cli/plan-an-go-prd-from-plan.sh" "${DISPATCH_ARGS[@]}"
+    ;;
+  run)
+    exec "$SCRIPT_DIR/cli/plan-an-go.sh" --workspace "$PLAN_AN_GO_ROOT" "${DISPATCH_ARGS[@]}"
+    ;;
+  forever)
+    exec "$SCRIPT_DIR/cli/plan-an-go-forever.sh" --workspace "$PLAN_AN_GO_ROOT" "${DISPATCH_ARGS[@]}"
+    ;;
+  validate)
+    exec "$SCRIPT_DIR/cli/plan-an-go-validate.sh" "${DISPATCH_ARGS[@]}"
+    ;;
+  task-watcher)
+    exec "$SCRIPT_DIR/cli/plan-an-go-task-watcher.sh" "${DISPATCH_ARGS[@]}"
+    ;;
+  planner)
+    exec "$SCRIPT_DIR/cli/plan-an-go-planner.sh" "${DISPATCH_ARGS[@]}"
+    ;;
+  prd)
+    exec "$SCRIPT_DIR/cli/plan-an-go-prd.sh" "${DISPATCH_ARGS[@]}"
+    ;;
+  wizard)
+    exec "$SCRIPT_DIR/cli/plan-an-go-wizard.sh" "${SUB_ARGS[@]}"
+    ;;
+  onboard)
+    exec "$SCRIPT_DIR/cli/plan-an-go-onboard.sh"
+    ;;
+  reset)
+    exec "$SCRIPT_DIR/cli/plan-an-go-reset.sh" "${SUB_ARGS[@]}"
+    ;;
+  file-watch)
+    exec "$SCRIPT_DIR/cli/plan-an-go-file-watch.sh" "${SUB_ARGS[@]}"
+    ;;
+  slack-update)
+    exec "$SCRIPT_DIR/cli/plan-an-go-slack-update.sh" "${SUB_ARGS[@]}"
+    ;;
+  setup)
+    (cd "$REPO_ROOT" && exec "$SCRIPT_DIR/system/setup.sh" "${SUB_ARGS[@]}")
+    ;;
+  install-clis)
+    (cd "$REPO_ROOT" && exec "$SCRIPT_DIR/system/install-clis.sh" "${SUB_ARGS[@]}")
+    ;;
+  auth-cli)
+    (cd "$REPO_ROOT" && exec "$SCRIPT_DIR/system/auth-cli.sh" "${SUB_ARGS[@]}")
+    ;;
+  verify)
+    (cd "$REPO_ROOT" && exec "$SCRIPT_DIR/system/verify.sh" "${SUB_ARGS[@]}")
+    ;;
+  ""|help|--help|-h)
+    echo "plan-an-go — Run from any directory; operating root is resolved and used as workspace."
+    echo ""
+    echo "Usage: plan-an-go [--root PATH] [:<subcommand>| <subcommand>] [args...]"
+    echo "       Alias form: plan-an-go :forever (colon optional in npm run plan-an-go:forever)."
+    echo "       Pass extra args after '--' when using npm (e.g. npm run plan-an-go:forever -- --slack-enable)."
+    echo ""
+    echo "Root (default operating path):"
+    echo "  1. --root PATH"
+    echo "  2. PLAN_AN_GO_ROOT in .env (at script repo root)"
+    echo "  3. Directory containing scripts/ (plan-an-go repo root)"
+    echo ""
+    echo "Subcommands:"
+    echo "  run           One implementer cycle"
+    echo "  forever       Implementer → validator loop"
+    echo "  validate      Validate implementer output file"
+    echo "  task-watcher  Live task list"
+    echo "  planner       Generate plan from prompt or PRD"
+    echo "  prd           Generate PRD from prompt or input doc"
+    echo "  prd-from-plan Validate/fix/generate PRD from PLAN (file or string)"
+    echo "  wizard        Guided PRD → review → update → validate → write → launch"
+    echo "  onboard       Interactive onboarding: menu + optional env review, then run a command"
+    echo "  reset         Reset [x] → [ ] in plan"
+    echo "  file-watch    Watch file changes"
+    echo "  slack-update  Post Slack message"
+    echo "  setup         System setup (install + auth + verify)"
+    echo "  install-clis  Install CLIs"
+    echo "  auth-cli      Authenticate CLIs"
+    echo "  verify        Verify CLIs/keys"
+    echo ""
+    echo "Output directory (run / forever / planner / prd):"
+    echo "  --out-dir DIR  Use DIR for generated files and workspace (e.g. ./example/one)."
+    echo "                 run/forever: implement in DIR; planner: write PLAN.md to DIR; prd: write PRD.md to DIR."
+    echo "                 Dir is created if missing. Use unique dirs per run (e.g. ./example/todo, ./example/journal)."
+    exit 0
+    ;;
+  *)
+    echo "Unknown subcommand: $SUBCMD" >&2
+    echo "Run: plan-an-go help" >&2
+    exit 1
+    ;;
+esac
