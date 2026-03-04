@@ -6,8 +6,8 @@
 
 **M1:0 - First milestone**
 [x] - M1:1- Task one [AGENT_01]
-[x] - M1:2- Task two [AGENT_02]
-[ ] - M1:3- Task three
+[ ] - M1:2- Task two [IN_PROGRESS]:[AGENT_02]
+[x] - M1:3- Task three [AGENT_03]
 
 **M2:0 - Second milestone**
 [ ] - M2:1- Another task
