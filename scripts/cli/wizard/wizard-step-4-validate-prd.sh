@@ -4,6 +4,7 @@
 # Exit: 0 valid, 1 invalid.
 
 set -e
+set -o pipefail
 
 WIZARD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE_FILE="${WIZARD_STATE_FILE:-$TMP_DIR/wizard-state}"

@@ -3,6 +3,7 @@
 # Usage: ./wizard-step-6-launch.sh [--prd-path PATH] [--plan-path PATH] [--no-ask]
 
 set -e
+set -o pipefail
 
 WIZARD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(cd "$WIZARD_DIR/../.." && pwd)"

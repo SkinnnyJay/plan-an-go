@@ -23,6 +23,7 @@
 #   ./plan-an-go-prd-from-plan.sh --plan-string "# PLAN — Foo\n\n**M1:0**\n[ ] - M1:1- Task" --out ./PRD.md
 
 set -e
+set -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -171,6 +172,9 @@ if [ -n "$CLI_FLAGS" ]; then
   CLI_ARGS+=("${EXTRA_CLI_ARGS[@]}")
 fi
 
+echo "[prd-from-plan] Generating PRD from plan with $CLI_BIN..." >&2
+exit_code=0
+set +e
 if [ "$CLI_BIN" = "codex" ]; then
   codex exec "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_out" 2> "$temp_err"
   exit_code=$?
@@ -178,6 +182,7 @@ else
   "$CLI_BIN" "${CLI_ARGS[@]}" -p "@$temp_prompt" > "$temp_out" 2> "$temp_err"
   exit_code=$?
 fi
+set -e
 
 if [ -s "$temp_err" ]; then
   grep -v '^\[Paste:' "$temp_err" 2>/dev/null | grep -v '^\[Test:' 2>/dev/null | cat >&2 || cat "$temp_err" >&2
@@ -190,6 +195,6 @@ fi
 
 mkdir -p "$(dirname "$PRD_OUT")"
 cat "$temp_out" > "$PRD_OUT"
-echo "Wrote PRD to $PRD_OUT" >&2
+echo "[prd-from-plan] Wrote PRD to $PRD_OUT" >&2
 
 exit 0

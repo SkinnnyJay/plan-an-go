@@ -1,14 +1,13 @@
 #!/bin/bash
 # plan-an-go-tts-summary.sh — Generate a short spoken summary after a task completes.
-# Called by plan-an-go-forever.sh when TTS_AFTER_TASK=true and OPENAI_API_KEY is set.
+# Called by plan-an-go-forever.sh when PLAN_AN_GO_TTS_AFTER_TASK=true and OPENAI_API_KEY is set.
 # Uses OpenAI Chat to produce 1–3 sentences from the template, then OpenAI TTS to speak them.
 #
 # Usage: called by orchestrator with env or:
 #   IMPL_OUTPUT=path VAL_OUTPUT=path PLAN_FILE=path ITERATION=n [AGENT_ID=...] [CONFIDENCE=...] [VERDICT=...] \
 #   TTS_PROMPT_FILE=path OPENAI_API_KEY=key ./plan-an-go-tts-summary.sh
 #
-# Optional env: TTS_SUMMARY_PROMPT_FILE (default: assets/prompts/voice-summary.md), TTS_SUMMARY_MODEL (chat),
-# TTS_TONE, TTS_MODEL (TTS), TTS_VOICE, TTS_SPEED, REPO_ROOT.
+# Optional env: PLAN_AN_GO_TTS_* (or legacy TTS_*): SUMMARY_PROMPT_FILE, SUMMARY_MODEL, TONE, MODEL, VOICE, SPEED; REPO_ROOT.
 
 set -e
 set -o pipefail
@@ -18,8 +17,9 @@ REPO_ROOT="${REPO_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 TMP_DIR="${PLAN_AN_GO_TMP:-./tmp}"
 mkdir -p "$TMP_DIR"
 
-# Require OpenAI key
-if [ -z "${OPENAI_API_KEY:-}" ]; then
+# Prefer prefixed env; fall back to legacy for backward compatibility
+OPENAI_API_KEY="${PLAN_AN_GO_OPENAI_API_KEY:-${OPENAI_API_KEY:-}}"
+if [ -z "$OPENAI_API_KEY" ]; then
   echo "⚠️  TTS skipped: OPENAI_API_KEY not set" >&2
   exit 0
 fi
@@ -32,17 +32,17 @@ ITERATION="${ITERATION:-0}"
 AGENT_ID="${AGENT_ID:-The implementer}"
 CONFIDENCE="${CONFIDENCE:-N/A}"
 VERDICT="${VERDICT:-PASSED}"
-# Prompt template: TTS_SUMMARY_PROMPT_FILE from .env, or TTS_PROMPT_FILE, or default voice-summary.md
-TTS_PROMPT_FILE="${TTS_SUMMARY_PROMPT_FILE:-${TTS_PROMPT_FILE:-$REPO_ROOT/assets/prompts/voice-summary.md}}"
+# Prompt template: PLAN_AN_GO_TTS_SUMMARY_PROMPT_FILE or legacy TTS_*, or default voice-summary.md
+TTS_PROMPT_FILE="${PLAN_AN_GO_TTS_SUMMARY_PROMPT_FILE:-${TTS_SUMMARY_PROMPT_FILE:-${TTS_PROMPT_FILE:-$REPO_ROOT/assets/prompts/voice-summary.md}}}"
 # If path is relative, resolve from REPO_ROOT
 if [[ "$TTS_PROMPT_FILE" != /* ]]; then
   TTS_PROMPT_FILE="$REPO_ROOT/$TTS_PROMPT_FILE"
 fi
-TTS_SUMMARY_MODEL="${TTS_SUMMARY_MODEL:-gpt-4o-mini}"
-TTS_TONE="${TTS_TONE:-professional}"
-TTS_VOICE="${TTS_VOICE:-alloy}"
-TTS_MODEL="${TTS_MODEL:-tts-1}"
-TTS_SPEED="${TTS_SPEED:-1.0}"
+TTS_SUMMARY_MODEL="${PLAN_AN_GO_TTS_SUMMARY_MODEL:-${TTS_SUMMARY_MODEL:-gpt-4o-mini}}"
+TTS_TONE="${PLAN_AN_GO_TTS_TONE:-${TTS_TONE:-professional}}"
+TTS_VOICE="${PLAN_AN_GO_TTS_VOICE:-${TTS_VOICE:-alloy}}"
+TTS_MODEL="${PLAN_AN_GO_TTS_MODEL:-${TTS_MODEL:-tts-1}}"
+TTS_SPEED="${PLAN_AN_GO_TTS_SPEED:-${TTS_SPEED:-1.0}}"
 
 if [ -z "$IMPL_OUTPUT" ] || [ ! -f "$IMPL_OUTPUT" ]; then
   echo "⚠️  TTS skipped: no implementer output file" >&2
@@ -85,16 +85,26 @@ if [ -n "$VAL_OUTPUT" ] && [ -f "$VAL_OUTPUT" ]; then
   val_content=$(cat "$VAL_OUTPUT")
   VALIDATOR_SUMMARY=$(echo "$val_content" | sed -n '/------START: VALIDATOR------/,/------END: VALIDATOR------/p' | head -20 | tr '\n' ' ' | sed 's/  */ /g' | cut -c1-300)
   [ -z "$VALIDATOR_SUMMARY" ] && VALIDATOR_SUMMARY=$(echo "$val_content" | head -15 | tr '\n' ' ' | cut -c1-300)
-  # Override confidence/verdict from val output if not set
+  # Override confidence/verdict/justification from val output if not set
   if [ "$CONFIDENCE" = "N/A" ]; then
     c=$(echo "$val_content" | sed -n 's/.*CONFIDENCE SCORE: \([0-9]*\).*/\1/p' | head -1)
     [ -n "$c" ] && CONFIDENCE="$c/10"
+  fi
+  CONFIDENCE_JUSTIFICATION=$(echo "$val_content" | sed -n 's/.*CONFIDENCE SCORE JUSTIFICATION: \(.*\)/\1/p' | head -1)
+  CONFIDENCE_JUSTIFICATION=$(echo "$CONFIDENCE_JUSTIFICATION" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  [ -z "$CONFIDENCE_JUSTIFICATION" ] && CONFIDENCE_JUSTIFICATION=""
+  if [ -n "$CONFIDENCE_JUSTIFICATION" ]; then
+    CONFIDENCE_WITH_JUSTIFICATION="$CONFIDENCE — $CONFIDENCE_JUSTIFICATION"
+  else
+    CONFIDENCE_WITH_JUSTIFICATION="$CONFIDENCE"
   fi
   if [ "$VERDICT" = "PASSED" ]; then
     v=$(echo "$val_content" | sed -n 's/.*VERDICT: \([A-Z_]*\).*/\1/p' | head -1)
     [ -n "$v" ] && VERDICT="$v"
   fi
 fi
+CONFIDENCE_WITH_JUSTIFICATION="${CONFIDENCE_WITH_JUSTIFICATION:-$CONFIDENCE}"
+CONFIDENCE_JUSTIFICATION="${CONFIDENCE_JUSTIFICATION:-}"
 [ -z "$VALIDATOR_SUMMARY" ] && VALIDATOR_SUMMARY="Validation complete. Verdict: $VERDICT."
 
 # Load template
@@ -113,6 +123,8 @@ prompt_filled="${prompt_filled//\$\{TASK_DESCRIPTION\}/$task_description}"
 prompt_filled="${prompt_filled//\$\{MILESTONE\}/$milestone}"
 prompt_filled="${prompt_filled//\$\{ITERATION\}/$ITERATION}"
 prompt_filled="${prompt_filled//\$\{CONFIDENCE\}/$CONFIDENCE}"
+prompt_filled="${prompt_filled//\$\{CONFIDENCE_JUSTIFICATION\}/$CONFIDENCE_JUSTIFICATION}"
+prompt_filled="${prompt_filled//\$\{CONFIDENCE_WITH_JUSTIFICATION\}/$CONFIDENCE_WITH_JUSTIFICATION}"
 prompt_filled="${prompt_filled//\$\{VERDICT\}/$VERDICT}"
 prompt_filled="${prompt_filled//\$\{TONE\}/$TTS_TONE}"
 prompt_filled="${prompt_filled//IMPLEMENTER_SUMMARY/$IMPLEMENTER_SUMMARY}"

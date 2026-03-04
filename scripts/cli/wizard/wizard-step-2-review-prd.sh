@@ -4,6 +4,7 @@
 #   Outputs path to revision notes file (or empty). State: WIZARD_REVISIONS_FILE (optional).
 
 set -e
+set -o pipefail
 
 WIZARD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(cd "$WIZARD_DIR/../.." && pwd)"

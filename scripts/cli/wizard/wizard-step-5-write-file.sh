@@ -4,6 +4,7 @@
 # Step 1 already wrote the file; this step is a checkpoint for "write file based on step 1 choice".
 
 set -e
+set -o pipefail
 
 STATE_FILE="${WIZARD_STATE_FILE:-$TMP_DIR/wizard-state}"
 TMP_DIR="${PLAN_AN_GO_TMP:-./tmp}"

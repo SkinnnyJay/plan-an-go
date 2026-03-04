@@ -6,6 +6,7 @@
 #   Other args passed to step 1 (e.g. --prd-out, --prompt, --cli). Does not change other workflows.
 
 set -e
+set -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WIZARD_DIR="$SCRIPT_DIR/wizard"

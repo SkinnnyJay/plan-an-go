@@ -5,6 +5,7 @@
 #   Writes WIZARD_PRD_PATH to state file for later steps.
 
 set -e
+set -o pipefail
 
 WIZARD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLI_DIR="$(cd "$WIZARD_DIR/.." && pwd)"

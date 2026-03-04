@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # plan-an-go-reset.sh — Reset completed tasks from [x] to [ ] in a plan file.
 # Usage: plan-an-go-reset.sh [--plan FILE] [--milestone N | -m N] [--force]
 #   --plan FILE   Plan file (default: ./PLAN.md)
@@ -8,6 +8,7 @@
 # Exit: 0 on success, 1 if plan missing or invalid args.
 
 set -e
+set -o pipefail
 
 PLAN_FILE=""
 MILESTONE=""

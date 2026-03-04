@@ -5,6 +5,7 @@
 #   Asks what you want to do, optionally lets you review/edit key variables (from .env or defaults), then runs the chosen command.
 
 set -e
+set -o pipefail
 
 CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(cd "$CLI_DIR/.." && pwd)"
@@ -30,7 +31,7 @@ export PLAN_AN_GO_ROOT
 default_plan_file="${PLAN_FILE:-PLAN.md}"
 default_tmp="${PLAN_AN_GO_TMP:-./tmp}"
 default_cli="${PLAN_AN_GO_CLI:-claude}"
-default_use_slack="${USE_SLACK:-false}"
+default_use_slack="${PLAN_AN_GO_USE_SLACK:-${USE_SLACK:-false}}"
 default_claude_model="${PLAN_AN_GO_CLAUDE_MODEL:-claude-sonnet-4-20250514}"
 default_codex_model="${PLAN_AN_GO_CODEX_MODEL:-codex-20250301}"
 
@@ -80,11 +81,11 @@ review_vars() {
   export PLAN_AN_GO_CODEX_MODEL
   default_codex_model="$PLAN_AN_GO_CODEX_MODEL"
 
-  USE_SLACK=$(prompt_var "USE_SLACK (true|false)" "$default_use_slack")
-  export USE_SLACK
-  default_use_slack="$USE_SLACK"
+  PLAN_AN_GO_USE_SLACK=$(prompt_var "PLAN_AN_GO_USE_SLACK (true|false)" "$default_use_slack")
+  export PLAN_AN_GO_USE_SLACK
+  default_use_slack="$PLAN_AN_GO_USE_SLACK"
 
-  echo "API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY): set in $REPO_ROOT/.env if needed; not shown here."
+  echo "API keys (PLAN_AN_GO_ANTHROPIC_API_KEY, PLAN_AN_GO_OPENAI_API_KEY): set in $REPO_ROOT/.env if needed; not shown here."
   echo "--- Done. These apply for this session only; edit .env to persist. ---"
   echo ""
 }

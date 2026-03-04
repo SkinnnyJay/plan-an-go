@@ -1,11 +1,10 @@
 #!/bin/bash
-
-# plan-an-go-file-watch.sh - Monitor file/folder changes in current directory
-# Displays changes with timestamps and colors
-#
+# plan-an-go-file-watch.sh — Monitor file/folder changes in current directory; displays changes with timestamps and colors.
 # Prerequisites: fswatch (see install hint per platform)
 # Usage: ./plan-an-go-file-watch.sh [directory]
 
+set -e
+set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../system/platform.sh
 . "$SCRIPT_DIR/../system/platform.sh"
@@ -40,7 +39,7 @@ echo ""
 TMP_DIR="${PLAN_AN_GO_TMP:-./tmp}"
 mkdir -p "$TMP_DIR"
 STATE_FILE=$(mktemp "$TMP_DIR/file-watch.XXXXXX")
-trap "rm -f $STATE_FILE" EXIT
+trap 'rm -f "$STATE_FILE"' EXIT
 
 # Function to format timestamp
 format_timestamp() {

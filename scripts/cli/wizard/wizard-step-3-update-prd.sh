@@ -3,6 +3,7 @@
 # Usage: ./wizard-step-3-update-prd.sh [--prd-path PATH] [--revisions-file PATH]
 
 set -e
+set -o pipefail
 
 WIZARD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(cd "$WIZARD_DIR/../.." && pwd)"

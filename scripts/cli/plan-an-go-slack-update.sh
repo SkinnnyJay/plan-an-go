@@ -36,6 +36,7 @@ if [ -f .env.local ]; then
   source .env.local
   set +a
 fi
+[ "${BASH_SOURCE[0]}" = "$0" ] && set -e && set -o pipefail
 
 # Constants
 SLACK_CHANNEL_ID="C0AAS5RNNKX"

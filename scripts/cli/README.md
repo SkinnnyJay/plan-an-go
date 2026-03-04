@@ -32,9 +32,9 @@ Config: `cli/wizard/wizard-config.json` (defaults for path, CLI, options). Pass 
 
 | Script | Purpose |
 |--------|---------|
-| `plan-an-go-slack-update.sh` | Slack posting (sourced by forever when `USE_SLACK=true`; Slack is off by default). |
+| `plan-an-go-slack-update.sh` | Slack posting (sourced by forever when `PLAN_AN_GO_USE_SLACK=true`; Slack is off by default). |
 | `plan-an-go-file-watch.sh` | Watch repo files while pipeline runs |
-| `plan-an-go-task-watcher.sh` | Live task list from plan (`--plan PATH`) |
+| `plan-an-go-task-watcher.sh` | Live task list from plan (`--plan PATH`, `--once`, `--minimal`, `--minimal-before N`, `--minimal-after N`, etc.). Invoked as `plan-an-go task-watcher` (full) or `plan-an-go task-watcher-minimal` (minimal: 5 before/5 after incomplete); npm: `plan-an-go-task-watcher` or `task:watcher`. |
 | `plan-an-go-plan-check.sh` | Plan completion check (used by orchestrator) |
 | `plan-an-go-split-run.sh` | **Command:** open native terminal with top/bottom split (top = task watcher, bottom = forever). Use `npm run plan-an-go-split -- [top args] -- [bottom args]`. |
 
@@ -49,4 +49,4 @@ Config: `cli/wizard/wizard-config.json` (defaults for path, CLI, options). Pass 
 - `PLAN_FILE` — Plan file path (default `PLAN.md`)
 - `PLAN_AN_GO_CLI` — `claude` \| `codex` \| `cursor-agent`
 - `PLAN_AN_GO_CLI_FLAGS` — Extra flags passed to the CLI (shared). When unset, `PLAN_AN_GO_CLAUDE_FLAGS` or `PLAN_AN_GO_CODEX_FLAGS` are used for the selected CLI.
-- `PLAN_AN_GO_SLACK_*` — Slack tokens (see `.env.sample`); only used when `USE_SLACK=true` (Slack off by default). Used by `plan-an-go-slack-update.sh`.
+- `PLAN_AN_GO_SLACK_*` — Slack tokens (see `.env.sample`); only used when `PLAN_AN_GO_USE_SLACK=true` (Slack off by default). Used by `plan-an-go-slack-update.sh`.
