@@ -32,7 +32,7 @@ Thanks for your interest in contributing. Here’s how to get started.
 
 - **Scripts:** The main entry is `scripts/plan-an-go`; CLI logic lives in `scripts/cli/` and setup in `scripts/system/`. Use Bash with `set -e` and keep scripts portable (macOS/Linux).
 
-- **Lint and format:** Run `npm run check` (or `make check`) before opening a PR. This runs ShellCheck, cspell, and shfmt. Install shellcheck and shfmt (e.g. `brew install shellcheck shfmt`). Add project terms to `cspell.json` if needed.
+- **Lint and format:** Run `npm run check` (or `make check`) before opening a PR. This runs ShellCheck and shfmt. Install shellcheck and shfmt (e.g. `brew install shellcheck shfmt`).
 
 ## Adding yourself as a contributor
 

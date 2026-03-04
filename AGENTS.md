@@ -18,8 +18,7 @@ This file provides context and instructions for AI coding agents (Cursor, Claude
 - `npm run plan-an-go-task-watcher -- --plan ./PLAN.md`: live task view, full list (requires `fswatch`).
 - `npm run task:watcher -- --plan ./PLAN.md`: live task view, minimal (5 before/5 after incomplete); same script args.
 - `npm run setup`, `npm run install-clis`, `npm run auth-cli`, `npm run verify`: system setup and CLI checks.
-- `npm run spellcheck`: run cspell on docs and scripts; `npm run spellcheck:fix` to add unknown words to dictionary.
-- `npm run lint`: ShellCheck + spellcheck; `npm run lint:sh`: ShellCheck only; `npm run format` / `npm run format:write`: check or fix shell formatting (shfmt); `npm run check`: lint + format check.
+- `npm run lint`: ShellCheck on scripts; `npm run lint:sh`: same; `npm run format` / `npm run format:write`: check or fix shell formatting (shfmt); `npm run check`: lint + format check.
 
 ## Coding Style & Naming Conventions
 - Bash is the primary language; keep scripts portable for macOS/Linux and use `#!/bin/bash` with `set -e` in new scripts.
@@ -34,7 +33,7 @@ This file provides context and instructions for AI coding agents (Cursor, Claude
 - Quote all expansions (e.g. `"$var"`, `"${arr[@]}"`). For lists of paths, prefer arrays and `"${arr[@]}"` over unquoted `$var` in `for` loops.
 - Send user-facing errors to stderr: `echo "ERROR: ..." >&2` and `exit 1`.
 - Use `mktemp` for temp files; avoid fixed names in `/tmp` to avoid collisions.
-- Run `npm run lint` (or `make lint`) to run ShellCheck and spellcheck; run `npm run check` (or `make check`) before commits to include format checks. Use `npm run format:write` (or `make format-write`) to fix shell formatting. Requires shellcheck and shfmt (e.g. `brew install shellcheck shfmt`).
+- Run `npm run lint` (or `make lint`) to run ShellCheck; run `npm run check` (or `make check`) before commits to include format checks. Use `npm run format:write` (or `make format-write`) to fix shell formatting. Requires shellcheck and shfmt (e.g. `brew install shellcheck shfmt`).
 
 ## Testing Guidelines
 - Script tests live in `__tests__/`; run with `npm test` (smoke) or `npm run test:full` (includes large/multi-app tests). Use `npm run test:verbose` for per-test output. All test output is written only to `./tmp/`. Use `__tests__/artifacts/` for PLAN/PRD and config fixtures.

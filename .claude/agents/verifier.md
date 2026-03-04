@@ -11,7 +11,7 @@ Validate that completed work passes quality gates for this repo.
 
 ## Verification checklist
 
-1. **Lint**: Run `npm run lint` (ShellCheck + spellcheck) — must exit 0.
+1. **Lint**: Run `npm run lint` (ShellCheck) — must exit 0.
 2. **Format**: Run `npm run format` (shfmt check) — no diff, or run `npm run format:write` and re-check.
 3. **Check**: Run `npm run check` — lint + format; must pass.
 4. **Tests**: Run `npm test` — smoke tests must pass (or `npm run test:full` if applicable).

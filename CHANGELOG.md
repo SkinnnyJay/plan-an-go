@@ -21,6 +21,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Token optimization:** Strip completed tasks from the plan before sending to the LLM to reduce prompt size.
 - **Setup and verify:** Interactive `npm run setup`, `install-clis`, `auth-cli`, and `verify` for CLIs and API keys.
 - **Example:** Minimal count example in `examples/count`; run with `npm run example:count`.
-- **Quality gates:** ShellCheck, cspell, shfmt; `npm run check` and `npm run ci` (lint → format → test).
+- **Quality gates:** ShellCheck, shfmt; `npm run check` and `npm run ci` (lint → format → test).
 
 [1.0.0]: https://github.com/SkinnnyJay/plan-an-go/releases/tag/v1.0.0

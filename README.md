@@ -190,7 +190,7 @@ When the loop finishes, your app has a plan-driven implementation and all plan t
 | `npm run install-clis [-- all]` | Install CLIs (interactive or `all`). |
 | `npm run auth-cli [-- all]` | Authenticate CLIs. |
 | `npm run verify [-- --force]` | Verify CLIs/keys; `--force` warns but exits 0. |
-| `npm run lint` | Run ShellCheck on scripts and cspell on docs/source files. |
+| `npm run lint` | Run ShellCheck on scripts. |
 | `npm run lint:sh` | ShellCheck only (scripts and entry). |
 | `npm run format` | Check shell script formatting (shfmt; requires `shfmt` installed). |
 | `npm run format:write` | Fix shell script formatting. |

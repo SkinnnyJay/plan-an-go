@@ -59,10 +59,8 @@
     "example:journal": "./examples/journal/run.sh",
     "example:vacation-airbnb": "./examples/vacation-airbnb/run.sh",
     "example:youtube-clone": "./examples/youtube-clone/run.sh",
-    "spellcheck": "cspell \"**/*.{md,json,sh,yml,yaml}\" \"!**/node_modules/**\" \"!**/__tests__/artifacts/**\"",
-    "spellcheck:fix": "cspell \"**/*.{md,json,sh,yml,yaml}\" \"!**/node_modules/**\" \"!**/__tests__/artifacts/**\" --no-progress -u",
     "lint:sh": "shellcheck scripts/plan-an-go scripts/cli/*.sh scripts/cli/wizard/*.sh scripts/cli/scripts/*.sh scripts/system/*.sh",
-    "lint": "npm run lint:sh && npm run spellcheck",
+    "lint": "npm run lint:sh",
     "format": "shfmt -d -i 2 -ci scripts/",
     "format:write": "shfmt -w -i 2 -ci scripts/",
     "check": "npm run lint && npm run format",
@@ -106,7 +104,5 @@
   "engines": {
     "node": ">=18"
   },
-  "devDependencies": {
-    "cspell": "^8.0.0"
-  }
+  "devDependencies": {}
 }

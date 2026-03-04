@@ -29,5 +29,5 @@ This repo is Bash/shell only. No TypeScript, Next.js, or frontend stack.
 
 ## Quality gates
 
-- Run `npm run lint` (ShellCheck + spellcheck) and `npm run check` (lint + format) before commits.
+- Run `npm run lint` (ShellCheck) and `npm run check` (lint + format) before commits.
 - Use `npm run format:write` to fix shell formatting (shfmt). Requires shellcheck and shfmt (e.g. `brew install shellcheck shfmt`).
