@@ -1,6 +1,6 @@
 # Count example
 
-Minimal plan-an-go example: write the numbers 1–10 to `./test.txt` (one per line) in this folder.
+Minimal plan-an-go example: write the numbers 1–10 to `./test.log` (one per line) in this folder.
 
 - **Plan:** [PLAN.md](./PLAN.md)
 - **Run from repo root:** `npm run example:count` or `./examples/count/run.sh`

@@ -8,7 +8,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$ROOT" || exit 1
 
-OUT="${SCRIPT_DIR}/run-$(date +%Y%m%d-%H%M%S).log"
+TMP_DIR="${PLAN_AN_GO_TMP:-$ROOT/tmp}"
+mkdir -p "$TMP_DIR"
+OUT="${TMP_DIR}/example-count-run-$(date +%Y%m%d-%H%M%S).log"
 echo "$OUT"
 exec ./scripts/cli/plan-an-go-forever.sh 5 25 \
   --workspace "$ROOT/examples/count" \
