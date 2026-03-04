@@ -2,16 +2,22 @@
 
 .PHONY: \
 	help \
+	test test-smoke test-full \
 	run run-claude run-codex run-cursor-agent \
 	run-forever run-forever-claude run-forever-codex run-forever-cursor-agent \
 	validate validate-claude validate-codex validate-cursor-agent \
 	planner prd prd-from-plan reset split example-count \
-	file-watch task-watcher plan-check slack-update \
+	file-watch task-watcher task-watcher-minimal plan-check slack-update \
 	lint format format-write check ci build \
 	setup install-clis auth-cli verify
 
 help:
 	@echo "plan-an-go targets (or use npm run from repo root):"
+	@echo ""
+	@echo "Tests"
+	@echo "  make test         — Smoke tests only (unit + output + integration; default for CI)"
+	@echo "  make test-smoke   — Same as test (exclude large/multi-app tests)"
+	@echo "  make test-full    — Full suite including large tests (PRD/planner multi-app creation)"
 	@echo ""
 	@echo "Core"
 	@echo "  make run                         — One implementer cycle (scripts/cli/plan-an-go.sh)"
@@ -39,8 +45,9 @@ help:
 	@echo ""
 	@echo "Tools"
 	@echo "  make file-watch                  — Watch file changes (scripts/cli/plan-an-go-file-watch.sh)"
-	@echo "  make task-watcher                — Live plan task list (scripts/cli/plan-an-go-task-watcher.sh)"
-	@echo "  make plan-check FILE=<path>      — Check plan formatting (scripts/cli/plan-an-go-plan-check.sh)"
+	@echo "  make task-watcher [ARGS='...']  — Live plan task list, full (scripts/cli/plan-an-go-task-watcher.sh)"
+	@echo "  make task-watcher-minimal [ARGS='...'] — Live task list, minimal (5 before/5 after incomplete)"
+	@echo "  make plan-check FILE=<path> [STRICT=1] — Check plan (scripts/cli/plan-an-go-plan-check.sh); STRICT=1 requires <work>"
 	@echo "  make slack-update MSG='<text>' [THREAD=<ts>] — Post Slack update"
 	@echo ""
 	@echo "Lint & format"
@@ -135,11 +142,14 @@ file-watch:
 	./scripts/cli/plan-an-go-file-watch.sh
 
 task-watcher:
-	./scripts/cli/plan-an-go-task-watcher.sh
+	./scripts/cli/plan-an-go-task-watcher.sh $(ARGS)
+
+task-watcher-minimal:
+	./scripts/cli/plan-an-go-task-watcher.sh --minimal --minimal-before 5 --minimal-after 5 $(ARGS)
 
 plan-check:
-	@if [ -z "$(FILE)" ]; then echo "Usage: make plan-check FILE=path/to/PLAN.md"; exit 1; fi
-	./scripts/cli/plan-an-go-plan-check.sh "$(FILE)"
+	@if [ -z "$(FILE)" ]; then echo "Usage: make plan-check FILE=path/to/PLAN.md [STRICT=1]"; exit 1; fi
+	@if [ "$(STRICT)" = "1" ]; then ./scripts/cli/plan-an-go-plan-check.sh --strict "$(FILE)"; else ./scripts/cli/plan-an-go-plan-check.sh "$(FILE)"; fi
 
 slack-update:
 	@if [ -z "$(MSG)" ]; then echo "Usage: make slack-update MSG='message' [THREAD=thread_ts]"; exit 1; fi
@@ -156,6 +166,12 @@ format-write:
 
 check:
 	npm run check
+
+test test-smoke:
+	npm run test:smoke
+
+test-full:
+	npm run test:full
 
 ci build:
 	./scripts/system/ci.sh

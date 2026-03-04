@@ -5,16 +5,16 @@
 #
 # Layout (ASCII):
 #
-#   +----------------------------------------------------------------------+
-#   |  Plan Task Watcher                                   ./PLAN.md       |
-#   +----------+-----+----------------------------------------------------+
-#   |  ID      |     | Task summary (truncated to fit)                     |
-#   +----------+-----+----------------------------------------------------+
-#   |  M0:1    |  ✓  | Add session-scoped decision-engine lifecycle...    |
-#   |  M0:2    |  ✓  | Add safe engine cache eviction/TTL...               |
-#   |  M3:9b   |  ○  | Fix HybridMemoryManager.retrieve...                |
-#   |  M10:7   |  ○  | Publish final confidence report...                   |
-#   +----------+-----+----------------------------------------------------+
+#   +--------------------------------------------------------------------------+
+#   |  Plan Task Watcher                                         ./PLAN.md     |
+#   +----------+-----+----------+------------------------------------------------+
+#   |  ID      |     | Agent    | Task summary (truncated to fit)                |
+#   +----------+-----+----------+------------------------------------------------+
+#   |  M0:1    |  ✓  |          | Add session-scoped decision-engine...   |
+#   |  M0:2    |  ✓  |          | Add safe engine cache eviction/TTL...   |
+#   |  M3:9b   |  ●  | AGENT_01  | Fix HybridMemoryManager.retrieve...     |
+#   |  M10:7   |  ○  |          | Publish final confidence report...      |
+#   +----------+-----+----------+-----------------------------------------+
 #   |  Last refresh: 2026-03-01 14:32:05                                   |
 #   |  [=========================>          ] 120/129  93%                  |
 #   +----------------------------------------------------------------------+
@@ -22,8 +22,9 @@
 #
 # When a task changes from incomplete to complete, it is shown checked (✓) and
 # briefly highlighted in bold green on the next refresh.
-# Tasks whose summary contains [IN_PROGRESS] or [IN_PROGRESS]:[AGENT_NN] are shown with a yellow ● (in progress).
-# When [IN_PROGRESS]:[AGENT_01] is present, the agent id is shown in the Agent column.
+# In progress: ○ = incomplete (dim), ● = in progress (yellow), ✓ = complete (green).
+# Multi-agent only: when any task has [IN_PROGRESS]:[AGENT_NN] or [AGENT_NN], an Agent column is shown;
+# in progress shows the agent name, complete shows only the task name (blank Agent). Single-agent runs use a 3-column layout (no Agent column).
 # Prerequisites: fswatch (brew install fswatch) unless --once is used.
 #
 # Usage:
@@ -38,10 +39,12 @@
 #   --minimal-before N    In minimal mode: N completed tasks before first incomplete (default: 3)
 #   --minimal-after N     In minimal mode: N completed tasks after last incomplete (default: 3)
 #   --no-progress    Hide progress bar
+#   --no-header      Omit title and separator lines at the top
 #   --no-color       Disable color
 #   --poll N         fswatch poll interval in seconds (default: 1)
 
 set -e
+set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../system/platform.sh
 . "$SCRIPT_DIR/../system/platform.sh"
@@ -68,6 +71,7 @@ MAX_TASK_LENGTH=""
 MINIMAL=false
 MINIMAL_BEFORE=3
 MINIMAL_AFTER=3
+NO_HEADER=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -111,6 +115,10 @@ while [[ $# -gt 0 ]]; do
       SHOW_PROGRESS=false
       shift
       ;;
+    --no-header)
+      NO_HEADER=true
+      shift
+      ;;
     --no-color)
       USE_COLOR=false
       shift
@@ -150,8 +158,8 @@ mkdir -p "$TMP_DIR"
 
 PLAN_ABS=$(cd "$(dirname "$PLAN_PATH")" && pwd)/$(basename "$PLAN_PATH")
 STATE_DIR=$(mktemp -d "$TMP_DIR/task-watcher.XXXXXX")
-PREV_COMPLETED="${STATE_DIR}/prev_completed.txt"
-CURRENT_TASKS="${STATE_DIR}/current_tasks.txt"
+PREV_COMPLETED="${STATE_DIR}/prev_completed.log"
+CURRENT_TASKS="${STATE_DIR}/current_tasks.log"
 FIRST_RUN="${STATE_DIR}/first_run.flag"
 trap "rm -rf $STATE_DIR" EXIT
 
@@ -266,10 +274,11 @@ progress_bar() {
   echo "[${bar}] ${completed}/${total}  ${pct}%"
 }
 
-# Column widths (ID, check, description fills rest)
+# Column widths (ID, check, agent, description fills rest)
 ID_COL=10
 CHECK_COL=5
-DESC_COL=$(( WIDTH - ID_COL - CHECK_COL - 8 ))
+AGENT_COL=10
+DESC_COL=$(( WIDTH - ID_COL - CHECK_COL - AGENT_COL - 11 ))
 [[ "$DESC_COL" -lt 10 ]] && DESC_COL=40
 if [[ -n "$MAX_TASK_LENGTH" ]]; then
   DESC_COL=$(( MAX_TASK_LENGTH + 0 ))
@@ -304,16 +313,16 @@ redraw() {
   [[ -s "$CURRENT_TASKS" ]] && completed=$(awk -F'\t' '$1==1 {c++} END {print c+0}' "$CURRENT_TASKS")
 
   # Build set of previously completed IDs; newly completed = in curr but not in prev
-  awk -F'\t' '$1==1 {print $2}' "$CURRENT_TASKS" > "${STATE_DIR}/curr_completed.txt" 2>/dev/null || true
-  sort -u "${STATE_DIR}/curr_completed.txt" 2>/dev/null > "${STATE_DIR}/curr_sorted.txt" || true
-  sort -u "$PREV_COMPLETED" 2>/dev/null > "${STATE_DIR}/prev_sorted.txt" || true
+  awk -F'\t' '$1==1 {print $2}' "$CURRENT_TASKS" > "${STATE_DIR}/curr_completed.log" 2>/dev/null || true
+  sort -u "${STATE_DIR}/curr_completed.log" 2>/dev/null > "${STATE_DIR}/curr_sorted.log" || true
+  sort -u "$PREV_COMPLETED" 2>/dev/null > "${STATE_DIR}/prev_sorted.log" || true
   # Only highlight newly completed after first run (so prev is from last redraw)
   if [[ -f "$FIRST_RUN" ]]; then
-    comm -23 "${STATE_DIR}/curr_sorted.txt" "${STATE_DIR}/prev_sorted.txt" 2>/dev/null > "${STATE_DIR}/newly_completed.txt" || true
+    comm -23 "${STATE_DIR}/curr_sorted.log" "${STATE_DIR}/prev_sorted.log" 2>/dev/null > "${STATE_DIR}/newly_completed.log" || true
   else
-    touch "${STATE_DIR}/newly_completed.txt"
+    touch "${STATE_DIR}/newly_completed.log"
   fi
-  cp "${STATE_DIR}/curr_completed.txt" "$PREV_COMPLETED" 2>/dev/null || true
+  cp "${STATE_DIR}/curr_completed.log" "$PREV_COMPLETED" 2>/dev/null || true
   touch "$FIRST_RUN" 2>/dev/null || true
 
   ( tput clear 2>/dev/null || clear ) || true
@@ -321,29 +330,53 @@ redraw() {
 
   local task_file="$CURRENT_TASKS"
   if [[ "$MINIMAL" == "true" ]]; then
-    minimal_window "$MINIMAL_BEFORE" "$MINIMAL_AFTER" > "${STATE_DIR}/minimal_tasks.txt" 2>/dev/null || true
-    task_file="${STATE_DIR}/minimal_tasks.txt"
+    minimal_window "$MINIMAL_BEFORE" "$MINIMAL_AFTER" > "${STATE_DIR}/minimal_tasks.log" 2>/dev/null || true
+    task_file="${STATE_DIR}/minimal_tasks.log"
   fi
 
-  if [[ "$MINIMAL" == "true" ]]; then
-    echo -e "${BOLD}${CYAN}Plan Task Watcher (minimal)${RESET}${DIM}                  $(basename "$PLAN_PATH")${RESET}"
-    sep=""
-    for (( i=0; i<DESC_COL; i++ )); do sep="${sep}-"; done
-    echo -e "${DIM}+----------+-----+${sep}+${RESET}"
-    printf "${DIM}%-10s | %-3s | %-${DESC_COL}s${RESET}\n" "ID" "" "Task summary"
-    echo -e "${DIM}+----------+-----+${sep}+${RESET}"
-  elif [[ "$IDS_ONLY" == "true" ]]; then
-    echo -e "${BOLD}${CYAN}Plan Task Watcher (IDs only)${RESET}${DIM}                    $(basename "$PLAN_PATH")${RESET}"
-    echo -e "${DIM}+----------+-----+${RESET}"
-    printf "${DIM}%-10s | %-3s${RESET}\n" "ID" ""
-    echo -e "${DIM}+----------+-----+${RESET}"
+  # Show Agent column only when plan has agent IDs (multi-agent run)
+  local show_agent_col=false
+  awk -F'\t' 'NF >= 4 && $4 != "" { exit 0 } END { exit 1 }' "$CURRENT_TASKS" 2>/dev/null && show_agent_col=true
+  local desc_col_this="$DESC_COL"
+  [[ "$show_agent_col" != "true" ]] && desc_col_this=$(( WIDTH - ID_COL - CHECK_COL - 8 ))
+  [[ "$desc_col_this" -lt 10 ]] && desc_col_this=40
+
+  if [[ "$NO_HEADER" != "true" ]]; then
+    if [[ "$MINIMAL" == "true" ]]; then
+      echo -e "${BOLD}${CYAN}Plan Task Watcher (minimal)${RESET}${DIM}                  $(basename "$PLAN_PATH")${RESET}"
+      sep=""
+      for (( i=0; i<desc_col_this; i++ )); do sep="${sep}-"; done
+      if [[ "$show_agent_col" == "true" ]]; then
+        echo -e "${DIM}+----------+-----+----------+${sep}+${RESET}"
+        printf "${DIM}%-10s | %-3s | %-${AGENT_COL}s | %-${desc_col_this}s${RESET}\n" "ID" "" "Agent" "Task summary"
+        echo -e "${DIM}+----------+-----+----------+${sep}+${RESET}"
+      else
+        echo -e "${DIM}+----------+-----+${sep}+${RESET}"
+        printf "${DIM}%-10s | %-3s | %-${desc_col_this}s${RESET}\n" "ID" "" "Task summary"
+        echo -e "${DIM}+----------+-----+${sep}+${RESET}"
+      fi
+    elif [[ "$IDS_ONLY" == "true" ]]; then
+      echo -e "${BOLD}${CYAN}Plan Task Watcher (IDs only)${RESET}${DIM}                    $(basename "$PLAN_PATH")${RESET}"
+      echo -e "${DIM}+----------+-----+${RESET}"
+      printf "${DIM}%-10s | %-3s${RESET}\n" "ID" ""
+      echo -e "${DIM}+----------+-----+${RESET}"
+    else
+      sep=""
+      for (( i=0; i<desc_col_this; i++ )); do sep="${sep}-"; done
+      echo -e "${BOLD}${CYAN}Plan Task Watcher${RESET}${DIM}                                    $(basename "$PLAN_PATH")${RESET}"
+      if [[ "$show_agent_col" == "true" ]]; then
+        echo -e "${DIM}+----------+-----+----------+${sep}+${RESET}"
+        printf "${DIM}%-10s | %-3s | %-${AGENT_COL}s | %-${desc_col_this}s${RESET}\n" "ID" "" "Agent" "Task summary"
+        echo -e "${DIM}+----------+-----+----------+${sep}+${RESET}"
+      else
+        echo -e "${DIM}+----------+-----+${sep}+${RESET}"
+        printf "${DIM}%-10s | %-3s | %-${desc_col_this}s${RESET}\n" "ID" "" "Task summary"
+        echo -e "${DIM}+----------+-----+${sep}+${RESET}"
+      fi
+    fi
   else
     sep=""
-    for (( i=0; i<DESC_COL; i++ )); do sep="${sep}-"; done
-    echo -e "${BOLD}${CYAN}Plan Task Watcher${RESET}${DIM}                                    $(basename "$PLAN_PATH")${RESET}"
-    echo -e "${DIM}+----------+-----+${sep}+${RESET}"
-    printf "${DIM}%-10s | %-3s | %-${DESC_COL}s${RESET}\n" "ID" "" "Task summary"
-    echo -e "${DIM}+----------+-----+${sep}+${RESET}"
+    for (( i=0; i<desc_col_this; i++ )); do sep="${sep}-"; done
   fi
 
   local max_rows=30
@@ -356,17 +389,15 @@ redraw() {
     id=$(echo "$line" | cut -f2)
     desc=$(echo "$line" | cut -f3)
     agent=$(echo "$line" | cut -f4)
-    # Append agent id to description for in-progress tasks
-    if [[ "$done_flag" == "2" ]] && [[ -n "$agent" ]]; then
-      desc="$desc [$agent]"
-    fi
-    desc=$(truncate_desc "$DESC_COL" "$desc")
+    agent_display=""
+    [[ "$done_flag" == "2" ]] && [[ -n "$agent" ]] && agent_display="$agent"
+    desc=$(truncate_desc "$desc_col_this" "$desc")
     desc="${desc//%/%%}"
     check="○"
     style="${RESET}"
     if [[ "$done_flag" == "1" ]]; then
       check="✓"
-      if [[ -f "${STATE_DIR}/newly_completed.txt" ]] && [[ -s "${STATE_DIR}/newly_completed.txt" ]] && grep -Fxq "$id" "${STATE_DIR}/newly_completed.txt" 2>/dev/null; then
+      if [[ -f "${STATE_DIR}/newly_completed.log" ]] && [[ -s "${STATE_DIR}/newly_completed.log" ]] && grep -Fxq "$id" "${STATE_DIR}/newly_completed.log" 2>/dev/null; then
         style="${GREEN}${BOLD}"
       else
         style="${GREEN}"
@@ -379,8 +410,10 @@ redraw() {
     fi
     if [[ "$IDS_ONLY" == "true" ]] && [[ "$MINIMAL" != "true" ]]; then
       printf "%-10s | ${style}%-3s${RESET}\n" "$id" "$check"
+    elif [[ "$show_agent_col" == "true" ]]; then
+      printf "%-10s | ${style}%-3s${RESET} | %-${AGENT_COL}s | %-${desc_col_this}s\n" "$id" "$check" "$agent_display" "$desc"
     else
-      printf "%-10s | ${style}%-3s${RESET} | %-${DESC_COL}s\n" "$id" "$check" "$desc"
+      printf "%-10s | ${style}%-3s${RESET} | %-${desc_col_this}s\n" "$id" "$check" "$desc"
     fi
     row=$(( row + 1 ))
   done < "$task_file"
@@ -391,6 +424,8 @@ redraw() {
 
   if [[ "$IDS_ONLY" == "true" ]]; then
     echo -e "${DIM}+----------+-----+${RESET}"
+  elif [[ "$show_agent_col" == "true" ]]; then
+    echo -e "${DIM}+----------+-----+----------+${sep}+${RESET}"
   else
     echo -e "${DIM}+----------+-----+${sep}+${RESET}"
   fi

@@ -14,6 +14,7 @@ PLAN_FILE="${PLAN_FILE:-PLAN.md}"
 WORKSPACE="${PLAN_AN_GO_WORKSPACE:-}"
 CLI_BIN="${PLAN_AN_GO_CLI:-claude}"
 CLI_FLAGS="${PLAN_AN_GO_CLI_FLAGS:-}"
+PLAN_AN_GO_STRICT="${PLAN_AN_GO_STRICT:-false}"
 
 PREV_ARG=""
 for arg in "$@"; do
@@ -26,6 +27,9 @@ for arg in "$@"; do
       ;;
     --cli-flags=*)
       CLI_FLAGS="${arg#*=}"
+      ;;
+    --strict)
+      PLAN_AN_GO_STRICT=true
       ;;
     --workspace)
       ;;
@@ -45,6 +49,7 @@ for arg in "$@"; do
   esac
   PREV_ARG="$arg"
 done
+export PLAN_AN_GO_STRICT
 
 # Resolve CLI flags: use PLAN_AN_GO_CLI_FLAGS if set, else per-CLI vars
 if [ -z "$CLI_FLAGS" ]; then
@@ -78,7 +83,7 @@ else
   TMP_DIR="$TMP_BASE"
 fi
 mkdir -p "$TMP_DIR"
-PROGRESS_FILE="$TMP_DIR/progress.txt"
+PROGRESS_FILE="$TMP_DIR/progress.log"
 
 if [ "$CLI_BIN" != "claude" ] && [ "$CLI_BIN" != "codex" ] && [ "$CLI_BIN" != "cursor-agent" ]; then
   echo "------START: IMPLEMENTER------"
@@ -107,6 +112,18 @@ if [ ! -s "$PLAN_FILE" ]; then
   exit 1
 fi
 
+# When PLAN_AN_GO_STRICT is true, require <work>-compliant plan
+if [ "${PLAN_AN_GO_STRICT:-false}" = "true" ]; then
+  WORK_SCRIPT="$SCRIPT_DIR/scripts/plan-work-section.sh"
+  if [ -f "$WORK_SCRIPT" ] && ! bash "$WORK_SCRIPT" compliant "$PLAN_FILE" 2>/dev/null; then
+    echo "------START: IMPLEMENTER------"
+    echo "ERROR: Plan is not <work>-compliant (required when PLAN_AN_GO_STRICT=true). Wrap milestones and tasks in <work>...</work>."
+    echo "VERDICT: FAILED"
+    echo "------END: IMPLEMENTER------"
+    exit 1
+  fi
+fi
+
 # Validate selected CLI is available
 if ! command -v "$CLI_BIN" &> /dev/null; then
   echo "------START: IMPLEMENTER------"
@@ -120,7 +137,7 @@ fi
 [ ! -f "$PROGRESS_FILE" ] && echo "# Progress Log" > "$PROGRESS_FILE"
 
 # Extract incomplete tasks to reduce token usage (when PLAN_AN_GO_AGENT_ID is set, only that agent's task is included)
-EXTRACTED_PLAN=$(mktemp)
+EXTRACTED_PLAN=$(mktemp "$TMP_DIR/extract.XXXXXX")
 cleanup() {
   [ -n "${EXTRACTED_PLAN:-}" ] && rm -f "$EXTRACTED_PLAN"
   [ -n "${temp_file:-}" ] && rm -f "$temp_file"
@@ -190,7 +207,7 @@ Before writing code, reflect on the MILESTONE and the TASK. Then:
 7. VALIDATE AND QUANTIFY BEFORE CHECK-OFF
    - Run relevant tests and commands (e.g. npm run check, npm run typecheck, npm run test).
    - Verify every acceptance criterion is met; confirm nothing is forgotten or missed.
-   - Only after validation passes: mark the task as done in the plan file (path below): change [  ] to [x] or [ x] on that line; commit; update the progress log at the path shown in PROGRESS LOG section below.
+   - Only after validation passes: mark the task as done in the plan file (path below): change [  ] to [x] or [ x] on that line; then commit (unless COMMIT SKIP below applies); update the progress log at the path shown in PROGRESS LOG section below.
 
 Then output your report in the required format below.
 
@@ -205,7 +222,7 @@ PLAN: [1–2 line summary]
 SUB-TASKS DONE: [list]
 FILES: [created/modified files]
 VALIDATION: [commands run and result, e.g. npm run test = pass]
-COMMIT: [hash] - [message]
+COMMIT: [hash] - [message]  (or "COMMIT: skipped (reason)" if commit was skipped or failed)
 ------END: IMPLEMENTER------
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -227,7 +244,12 @@ cat "$EXTRACTED_PLAN" >> "$temp_prompt"
 echo "" >> "$temp_prompt"
 echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
 echo "PROGRESS LOG (update this file when marking task done): $PROGRESS_FILE" >> "$temp_prompt"
-echo "ARTIFACT DIRECTORY (write any task output/completion files here): $TMP_DIR" >> "$temp_prompt"
+echo "ARTIFACT DIRECTORY: $TMP_DIR" >> "$temp_prompt"
+echo "  Write ALL task output/completion files UNDER this directory (e.g. $TMP_DIR/task-M1-1-completed.log). Do NOT create task-*-completed.log or task-*-output.log in the workspace root." >> "$temp_prompt"
+if [ -n "${PLAN_AN_GO_SKIP_COMMIT:-}" ]; then
+  echo "" >> "$temp_prompt"
+  echo "COMMIT SKIP: Do NOT run git add or git commit (workspace is under tmp/; repo .git may be unwritable). In your report use: COMMIT: skipped (workspace under tmp)" >> "$temp_prompt"
+fi
 echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
 cat "$PROGRESS_FILE" >> "$temp_prompt"
 
@@ -240,7 +262,7 @@ STREAM_BG="\033[48;5;236m"  # Dark gray (default - subtle, good readability)
 STREAM_RESET="\033[0m"
 
 # Check if streaming is enabled (from parent script or environment)
-STREAM_OUTPUT="${STREAM_OUTPUT:-false}"
+STREAM_OUTPUT="${PLAN_AN_GO_STREAM_OUTPUT:-${STREAM_OUTPUT:-false}}"
 
 CLAUDE_MODEL="${PLAN_AN_GO_CLAUDE_MODEL:-claude-sonnet-4-20250514}"
 CODEX_MODEL="${PLAN_AN_GO_CODEX_MODEL:-}"
@@ -261,8 +283,12 @@ if [ -n "$CLI_FLAGS" ]; then
 fi
 
 # Pass prompt via stdin for all CLIs to avoid permission/exec issues with temp file paths.
+# Use set +e so we always capture exit code and show CLI output/errors before exiting.
+exit_code=0
+set +e
 if [ "$STREAM_OUTPUT" = "true" ]; then
   # Streaming mode: display output in real-time with colored background
+  echo "[implementer] Running $CLI_BIN (streaming)..." >&2
   printf "%b" "${STREAM_BG}" >/dev/tty 2>/dev/null || true
   if [ "$CLI_BIN" = "codex" ]; then
     codex exec "${CLI_ARGS[@]}" - < "$temp_prompt" 2>&1 | tee "$temp_file"
@@ -273,19 +299,19 @@ if [ "$STREAM_OUTPUT" = "true" ]; then
   printf "%b" "${STREAM_RESET}" >/dev/tty 2>/dev/null || true
 else
   # Batch mode: capture all output, display after
+  echo "[implementer] Running $CLI_BIN..." >&2
   if [ "$CLI_BIN" = "codex" ]; then
     codex exec "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_file" 2> "$temp_err"
   else
     "$CLI_BIN" "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_file" 2> "$temp_err"
   fi
   exit_code=$?
-
+  set -e
   # Output result
   if [ -s "$temp_file" ]; then
     cat "$temp_file"
   fi
-
-  # Output errors to stderr if any
+  # Output errors to stderr if any (so user sees why CLI failed)
   if [ -s "$temp_err" ]; then
     grep -v '^\[Paste:' "$temp_err" 2>/dev/null | grep -v '^\[Test:' 2>/dev/null | cat >&2 || cat "$temp_err" >&2
   fi

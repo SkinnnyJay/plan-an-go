@@ -86,7 +86,7 @@ else
   TMP_DIR="$TMP_BASE"
 fi
 mkdir -p "$TMP_DIR"
-PROGRESS_FILE="$TMP_DIR/progress.txt"
+PROGRESS_FILE="$TMP_DIR/progress.log"
 [ ! -f "$PROGRESS_FILE" ] && echo "# Progress Log" > "$PROGRESS_FILE"
 
 if [ "$CLI_BIN" != "claude" ] && [ "$CLI_BIN" != "codex" ] && [ "$CLI_BIN" != "cursor-agent" ]; then
@@ -181,6 +181,7 @@ VALIDATION WORKFLOW
 4. NOTHING FORGOTTEN - Cross-check plan task description and any sub-tasks; confirm no item is missed
 5. REPEATABILITY - Confirm steps/commands are documented so the work can be reproduced; flag if not
 6. CALCULATE CONFIDENCE (0-10): code exists + criteria met + tests pass + no shortcuts + all criteria quantified + repeatable
+7. CONFIDENCE SCORE JUSTIFICATION: Provide one line (1-4 sentences) explaining why you gave that score.
 
 TAKE ACTION:
 - If confidence >= 8/10: Keep task done in the plan file (path below): ensure the task line has [x] or [ x], not [  ]; update the progress log at the path shown in PROGRESS LOG section below
@@ -194,6 +195,7 @@ REQUIRED OUTPUT FORMAT
 MODE: TASK_VALIDATION
 FEATURE: [Task ID]
 CONFIDENCE SCORE: [X/10]
+CONFIDENCE SCORE JUSTIFICATION: [One line, 1-4 sentences explaining the score.]
 CRITERIA: [each plan criterion → MET/NOT MET]
 VERDICT: APPROVED / NEEDS_WORK
 REPEATABLE: YES / NO [and if NO, what is missing]
@@ -242,7 +244,7 @@ STREAM_BG="\033[48;5;236m"  # Dark gray (default - subtle, good readability)
 STREAM_RESET="\033[0m"
 
 # Check if streaming is enabled (from parent script or environment)
-STREAM_OUTPUT="${STREAM_OUTPUT:-false}"
+STREAM_OUTPUT="${PLAN_AN_GO_STREAM_OUTPUT:-${STREAM_OUTPUT:-false}}"
 
 CLAUDE_MODEL="${PLAN_AN_GO_CLAUDE_MODEL:-claude-sonnet-4-20250514}"
 CODEX_MODEL="${PLAN_AN_GO_CODEX_MODEL:-}"
@@ -260,8 +262,12 @@ fi
 
 # Codex: -p is config profile, not prompt. Use "codex exec" and stdin for prompt.
 # Claude/cursor-agent: -p @file reads prompt from file.
+# Use set +e so we always capture exit code and show CLI output/errors before exiting.
+exit_code=0
+set +e
 if [ "$STREAM_OUTPUT" = "true" ]; then
   # Streaming mode: display output in real-time with colored background
+  echo "[validator] Running $CLI_BIN (streaming)..." >&2
   printf "%b" "${STREAM_BG}" >/dev/tty 2>/dev/null || true
   if [ "$CLI_BIN" = "codex" ]; then
     codex exec "${CLI_ARGS[@]}" - < "$temp_prompt" 2>&1 | tee "$temp_file"
@@ -272,19 +278,19 @@ if [ "$STREAM_OUTPUT" = "true" ]; then
   printf "%b" "${STREAM_RESET}" >/dev/tty 2>/dev/null || true
 else
   # Batch mode: capture all output, display after
+  echo "[validator] Running $CLI_BIN..." >&2
   if [ "$CLI_BIN" = "codex" ]; then
     codex exec "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_file" 2> "$temp_err"
   else
     "$CLI_BIN" "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_file" 2> "$temp_err"
   fi
   exit_code=$?
-
+  set -e
   # Output result
   if [ -s "$temp_file" ]; then
     cat "$temp_file"
   fi
-
-  # Output errors to stderr if any
+  # Output errors to stderr if any (so user sees why CLI failed)
   if [ -s "$temp_err" ]; then
     grep -v '^\[Paste:' "$temp_err" 2>/dev/null | grep -v '^\[Test:' 2>/dev/null | cat >&2 || cat "$temp_err" >&2
   fi

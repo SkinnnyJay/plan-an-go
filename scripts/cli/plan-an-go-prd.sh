@@ -24,6 +24,7 @@
 #   ./plan-an-go-prd.sh --cli cursor-agent --prompt="New API endpoint for users list"
 
 set -e
+set -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -123,10 +124,13 @@ if ! command -v "$CLI_BIN" &> /dev/null; then
   exit 1
 fi
 
+TMP_DIR="${PLAN_AN_GO_TMP:-./tmp}"
+mkdir -p "$TMP_DIR"
+
 # Build full prompt: instructions + template first, then INPUT last
-temp_prompt=$(mktemp)
-temp_out=$(mktemp)
-temp_err=$(mktemp)
+temp_prompt=$(mktemp "$TMP_DIR/prd-prompt.XXXXXX")
+temp_out=$(mktemp "$TMP_DIR/prd-out.XXXXXX")
+temp_err=$(mktemp "$TMP_DIR/prd-err.XXXXXX")
 trap 'rm -f "$temp_prompt" "$temp_out" "$temp_err"' EXIT
 
 cat "$PRD_PROMPT" >> "$temp_prompt"
@@ -164,6 +168,9 @@ if [ -n "$CLI_FLAGS" ]; then
   CLI_ARGS+=("${EXTRA_CLI_ARGS[@]}")
 fi
 
+echo "[prd] Generating PRD with $CLI_BIN..." >&2
+exit_code=0
+set +e
 if [ "$CLI_BIN" = "codex" ]; then
   codex exec "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_out" 2> "$temp_err"
   exit_code=$?
@@ -171,6 +178,7 @@ else
   "$CLI_BIN" "${CLI_ARGS[@]}" -p "@$temp_prompt" > "$temp_out" 2> "$temp_err"
   exit_code=$?
 fi
+set -e
 
 if [ -s "$temp_err" ]; then
   grep -v '^\[Paste:' "$temp_err" 2>/dev/null | grep -v '^\[Test:' 2>/dev/null | cat >&2 || cat "$temp_err" >&2
@@ -184,6 +192,6 @@ fi
 # Write output to target file
 mkdir -p "$(dirname "$OUT_FILE")"
 cat "$temp_out" > "$OUT_FILE"
-echo "Wrote PRD to $OUT_FILE"
+echo "[prd] Wrote PRD to $OUT_FILE" >&2
 
 exit 0

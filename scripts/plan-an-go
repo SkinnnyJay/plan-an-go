@@ -9,7 +9,7 @@
 #
 # Usage:
 #   plan-an-go [--root PATH] [:<subcommand>| <subcommand>] [args...]
-#   Subcommands: run | forever | validate | task-watcher | planner | prd | prd-from-plan | wizard | onboard | reset | file-watch | slack-update | setup | install-clis | auth-cli | verify
+#   Subcommands: run | forever | validate | ... | setup | install-plan-an-go | link | install-clis | auth-cli | verify
 #   Alias form: :forever, :validate, etc. (e.g. plan-an-go :forever)
 #
 # Examples (from any directory):
@@ -18,10 +18,16 @@
 #   npm run plan-an-go-forever   (uses package.json scripts; root = repo where npm is run)
 
 set -e
+set -o pipefail
 ENTRY_SCRIPT="${BASH_SOURCE[0]}"
 SCRIPT_DIR="$(cd "$(dirname "$ENTRY_SCRIPT")" && pwd)"
 # Repo root = directory that contains the scripts/ folder
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+if [ -f "$REPO_ROOT/assets/ascii.txt" ]; then
+  cat "$REPO_ROOT/assets/ascii.txt"
+  printf '\n'
+fi
 
 ROOT_ARG=""
 REST_ARGS=()
@@ -49,6 +55,10 @@ if [ -f "$REPO_ROOT/.env" ]; then
   . "$REPO_ROOT/.env"
   set +a
 fi
+# Prefer prefixed API keys so CLIs (claude, codex) see keys under standard names
+ANTHROPIC_API_KEY="${PLAN_AN_GO_ANTHROPIC_API_KEY:-$ANTHROPIC_API_KEY}"
+OPENAI_API_KEY="${PLAN_AN_GO_OPENAI_API_KEY:-$OPENAI_API_KEY}"
+export ANTHROPIC_API_KEY OPENAI_API_KEY
 
 # Resolve operating root: --root arg > .env PLAN_AN_GO_ROOT > repo root
 if [ -n "$ROOT_ARG" ]; then
@@ -157,6 +167,9 @@ case "$SUBCMD" in
   task-watcher)
     exec "$SCRIPT_DIR/cli/plan-an-go-task-watcher.sh" "${DISPATCH_ARGS[@]}"
     ;;
+  task-watcher-minimal)
+    exec "$SCRIPT_DIR/cli/plan-an-go-task-watcher.sh" --minimal --minimal-before 5 --minimal-after 5 "${DISPATCH_ARGS[@]}"
+    ;;
   planner)
     exec "$SCRIPT_DIR/cli/plan-an-go-planner.sh" "${DISPATCH_ARGS[@]}"
     ;;
@@ -180,6 +193,9 @@ case "$SUBCMD" in
     ;;
   setup)
     (cd "$REPO_ROOT" && exec "$SCRIPT_DIR/system/setup.sh" "${SUB_ARGS[@]}")
+    ;;
+  install-plan-an-go|link)
+    (cd "$REPO_ROOT" && exec "$SCRIPT_DIR/system/install-plan-an-go.sh" "${SUB_ARGS[@]}")
     ;;
   install-clis)
     (cd "$REPO_ROOT" && exec "$SCRIPT_DIR/system/install-clis.sh" "${SUB_ARGS[@]}")
@@ -206,7 +222,8 @@ case "$SUBCMD" in
     echo "  run           One implementer cycle"
     echo "  forever       Implementer → validator loop"
     echo "  validate      Validate implementer output file"
-    echo "  task-watcher  Live task list"
+    echo "  task-watcher         Live task list (full)"
+    echo "  task-watcher-minimal Live task list (minimal: 5 before/after incomplete); alias: npm run task:watcher"
     echo "  planner       Generate plan from prompt or PRD"
     echo "  prd           Generate PRD from prompt or input doc"
     echo "  prd-from-plan Validate/fix/generate PRD from PLAN (file or string)"
@@ -215,10 +232,14 @@ case "$SUBCMD" in
     echo "  reset         Reset [x] → [ ] in plan"
     echo "  file-watch    Watch file changes"
     echo "  slack-update  Post Slack message"
-    echo "  setup         System setup (install + auth + verify)"
-    echo "  install-clis  Install CLIs"
+    echo "  setup             System setup (link + install CLIs + auth + verify)"
+    echo "  install-plan-an-go  Link plan-an-go to PATH (npm link); alias: link"
+    echo "  install-clis      Install CLIs (claude, codex, jq, fswatch)"
     echo "  auth-cli      Authenticate CLIs"
     echo "  verify        Verify CLIs/keys"
+    echo ""
+    echo "Plan compliance:"
+    echo "  --strict       Require plan to use <work>...</work> (non-compliant plans exit 1). See README."
     echo ""
     echo "Output directory (run / forever / planner / prd):"
     echo "  --out-dir DIR  Use DIR for generated files and workspace (e.g. ./example/one)."
