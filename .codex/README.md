@@ -1,8 +1,8 @@
-# Cursor / Agent Skills project config
+# plan-an-go — Codex config
 
-This directory is used by **Cursor** when you run plan-an-go with `--cli cursor-agent`.
+Used by **Codex** when working in this repo. Codex discovers instructions from [AGENTS.md](https://developers.openai.com/codex/guides/agents-md) in the project root (and optional overrides); this directory holds rules and skills aligned with the plan-an-go Bash pipeline for tools that read `.codex/`.
 
-- **Skills** in `skills/` are loaded by Cursor as project-level [Agent Skills](https://cursor.com/docs/context/skills).
-- Cursor also reads from `.cursor/` (rules, commands, MCP). For compatibility it can load skills from `.claude/skills/` and `.codex/skills/` as well.
+- **Rules** (`rules/`): Bash/shell quality and fixing workflow (same layout as `.cursor/rules`).
+- **Skills** (`skills/`): e.g. generate-plan; skill format compatible with [Agent Skills](https://agentskills.io/).
 
-Docs: [Agent Skills](https://cursor.com/docs/context/skills).
+See [CLAUDE.md](../CLAUDE.md) and [AGENTS.md](../AGENTS.md) for project overview and commands.

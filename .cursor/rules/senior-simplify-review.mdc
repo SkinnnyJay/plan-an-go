@@ -1,21 +1,24 @@
 ---
-description: "Use senior-simplify-review skill for over-engineering audits, DDD simplification, and phased remediation with priority-justified findings"
-globs: ["**/*.ts", "**/*.tsx"]
+description: "Shell script review: quoting, traps, duplication, and plan-an-go conventions"
+globs:
+  - "**/*.sh"
+  - "scripts/**/*"
+alwaysApply: false
 ---
 
-# Senior Simplify & Review
+# Shell Script Review (plan-an-go)
 
-When performing deep code review, simplification audits, or refactor planning:
+When doing deep code review or refactor planning on Bash/shell in this repo:
 
-1. **Apply the senior-simplify-review skill** (`.claude/skills/senior-simplify-review/SKILL.md`).
+1. **Look for**:
+   - Unquoted expansions (`$var` instead of `"$var"`), unquoted `$@` in loops
+   - Missing `set -e` / `set -o pipefail` or unsafe use of `set +e`
+   - Temp files not cleaned with `trap ... EXIT` or fixed paths in `/tmp`
+   - Errors sent to stdout instead of stderr; swallowed exit codes
+   - Duplicated arg-parsing or workspace-resolution logic that could be shared
+   - Env vars not prefixed with `PLAN_AN_GO_` or documented in `docs/ENV-README.md`
+   - Overlong functions or scripts that could be split for clarity
 
-2. **Look for**:
-   - Over-engineered solutions (unnecessary abstraction, wrong responsibility, god objects)
-   - File length (>2500 lines) and function length (>500 lines) and high complexity
-   - Weak typing (`any`, `as` casts, magic literals, missing Zod at boundaries)
-   - Logging not via logger (console.* or direct `/api/logs`), config not via `env`/`features`
-   - Duplication and missing utilities; redundant or non-meaningful comments
+2. **Output**: Findings with file:line, severity (MUST FIX / SHOULD FIX / SUGGESTION), and concrete fix suggestions.
 
-3. **Output**: Findings table (Priority, File, Line(s), Category, Finding, Justification) plus a Phased Remediation Plan (P0 Critical → P1 Structure → P2 Types/Constants → P3 Deduplication → P4 Polish).
-
-4. **Priorities**: P0 = correctness/security/compliance; P1 = size/responsibility; P2 = types/literals/dedup; P3 = naming/comments.
+3. **Priorities**: Correctness and safety first (quoting, traps, exit codes); then consistency and deduplication; then naming and comments.

@@ -1,48 +1,33 @@
 ---
-description: "RetroLLM Arena TypeScript code quality: type safety, file limits, logging, env access, naming"
+description: "plan-an-go Bash/shell code quality: quoting, traps, env, naming"
 alwaysApply: true
 ---
 
-# Code Quality Standards
+# Code Quality Standards (plan-an-go)
 
-## Strict Type Safety
-- Never use `any`. Type every variable, parameter, and return value explicitly.
-- Never use type casting (`as`). Use type guards, narrowing, or generics instead.
-- Define data types as Zod schemas at system boundaries; infer types: `type T = z.infer<typeof Schema>`.
-- Validate API request bodies and external data with `schema.parse()` or `schema.safeParse()`.
-- Strict mode enabled; build errors fail the build.
+This repo is Bash/shell only. No TypeScript, Next.js, or frontend stack.
 
-## File & Function Size Limits
-- **Functions**: max 500 lines. Break large functions into smaller, composable helpers.
-- **Files**: max 2500 lines. Split into modules if approaching the limit.
-- Prefer early returns to reduce nesting depth.
+## Bash script best practices (scripts in scripts/)
 
-## Environment Variables
-- Always use `env` and `features` from `@/lib/env` to access configuration. Never use `process.env` directly (except in tests or scripts).
+- Use `#!/bin/bash` with `set -e` and `set -o pipefail`. Keep scripts portable for macOS/Linux.
+- Quote all expansions: `"$var"`, `"${arr[@]}"`. For lists of paths, use arrays and `"${arr[@]}"` in loops.
+- Initialize loop/state variables before use (e.g. `PREV_ARG=""` before arg-parsing loops) so scripts are safe under `set -u` if adopted.
+- Prefer a `cleanup()` function and `trap cleanup EXIT` for temp files; only `rm -f` when the variable is set (e.g. `[ -n "${temp_file:-}" ] && rm -f "$temp_file"`).
+- Send user-facing errors to stderr: `echo "ERROR: ..." >&2` and `exit 1`.
+- Use `mktemp` for temp files; avoid fixed names in `/tmp`.
 
-## Logging
-- Backend: use `createLoggerInstance(name)` from `@/lib/logger`.
-- Frontend: use `useLogger({ name })` from `@/hooks`.
-- Never use `console.log`, `console.debug`, `console.error`, or `console.info` directly.
+## Naming and layout
 
-## Comments & Documentation
-- Only add meaningful comments: logical steps, complex algorithm explanations, non-obvious "why" reasoning.
-- Do not add trivial comments that restate what the code does.
-- No emoji in code or comments.
+- Script names: `plan-an-go-*.sh` in `scripts/cli/` and `scripts/system/`.
+- Environment variables: uppercase, prefixed with `PLAN_AN_GO_` (see `docs/ENV-README.md`).
+- Two-space indentation; descriptive variable names.
 
-## Private/Protected Member Naming
-- Use TypeScript's `private` or `protected` keyword. Do NOT prefix with underscores.
-  - Correct: `private eventBus: IChatEventBus;`
-  - Wrong: `private _eventBus: IChatEventBus;`
-- Enforced by Biome (`useNamingConvention`) and ESLint (`@typescript-eslint/naming-convention`).
+## Comments
 
-## Naming Conventions
-- PascalCase for component files: `AgentFormDialog.tsx`
-- camelCase for utilities and hooks: `useAgentList.ts`, `background-jobs.service.ts`
-- snake_case only for database columns and env-aligned names
-- Named exports for components (not default, except `page.tsx`)
+- Only meaningful comments: logical steps, non-obvious "why" reasoning.
+- No trivial comments that restate the code. No emoji in code or comments.
 
-## Component Patterns
-- `"use client"` pragma only for components with React state/hooks
-- Prefer Radix UI / shadcn components from `src/components/ui/` before building custom UI
-- Tailwind utility classes with `cn()` helper from `@/lib/utils`
+## Quality gates
+
+- Run `npm run lint` (ShellCheck + spellcheck) and `npm run check` (lint + format) before commits.
+- Use `npm run format:write` to fix shell formatting (shfmt). Requires shellcheck and shfmt (e.g. `brew install shellcheck shfmt`).

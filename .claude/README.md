@@ -1,8 +1,9 @@
-# Claude CLI project config
+# plan-an-go — Claude Code project config
 
-This directory is used by the **Anthropic Claude CLI** when you run plan-an-go with `--cli claude`.
+Used by the **Anthropic Claude CLI** when you run plan-an-go with `--cli claude`. Project scope: [Claude Code settings](https://docs.anthropic.com/en/docs/claude-code/settings) (`.claude/` is project-level; CLAUDE.md can live in repo root or here).
 
-- **Rules** (`rules/`) and **skills** (`skills/`) are picked up by Claude Code in this project.
-- **MCP** servers can be configured via `mcp.json` (or use `--mcp-config` when invoking the CLI).
+- **Rules** (`rules/`): Bash/shell quality and fixing workflow. File-type rules use frontmatter (`description`, `globs`, `alwaysApply`).
+- **Skills** (`skills/`): Each skill is a directory with required `SKILL.md` (frontmatter: `name`, `description`). See [Extend Claude with skills](https://docs.anthropic.com/en/docs/claude-code/skills).
+- **MCP**: optional servers in `mcp.json` (or `--mcp-config` when invoking the CLI).
 
-Docs: [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [CLI reference](https://docs.anthropic.com/en/docs/claude-code/cli-reference).
+See [CLAUDE.md](../CLAUDE.md) and [AGENTS.md](../AGENTS.md) for project overview and commands.

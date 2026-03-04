@@ -1,30 +1,20 @@
-# Code Review
+# Code Review (plan-an-go)
 
-## Overview
-
-Review current changes for quality, correctness, and project conventions. Report findings with clear severity and file:line references.
+Review changes for correctness and plan-an-go conventions. Report findings with severity and file:line.
 
 ## Steps
 
-1. **Inspect changes**
-   - Run `git diff` to see all changes
+1. **Inspect**: `git diff` for all changes.
+2. **Review against**:
+   - Unquoted expansions; missing `set -e` / `set -o pipefail`
+   - Temp files without `trap` cleanup; errors to stdout instead of stderr
+   - Env vars: use `PLAN_AN_GO_` prefix (see docs/ENV-README.md)
+   - Script naming: `plan-an-go-*.sh`; two-space indent
+   - Meaningful comments only; no emoji
+3. **Report**: Severity (MUST FIX, SHOULD FIX, SUGGESTION) and file:line for each finding.
 
-2. **Review against criteria**
-   - Logic errors, null handling, race conditions
-   - Private members use `private` keyword (no underscore prefix)
-   - Zod schemas for external data validation
-   - API routes: Zod validation at boundary, standard Next.js route handlers (see .cursor/rules/api-patterns.mdc)
-   - No `any` types; no `eslint-disable` without justification
-   - Functions under ~80 lines, files under ~400 lines
+## Checklist
 
-3. **Report findings**
-   - Use severity: MUST FIX, SHOULD FIX, SUGGESTION
-   - Include file:line references for each finding
-
-## Review Checklist
-
-- [ ] Logic and edge cases reviewed
-- [ ] Naming and style match project conventions
-- [ ] No inappropriate `any` or disables
-- [ ] API routes validate input with Zod and follow project patterns
-- [ ] Size limits (function/file) considered
+- [ ] Logic and quoting reviewed
+- [ ] Naming and style match AGENTS.md / rules
+- [ ] No secrets or .env in changes

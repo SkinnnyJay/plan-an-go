@@ -1,38 +1,31 @@
 ---
 name: researcher
-description: Codebase researcher. Use for deep exploration of unfamiliar code areas, dependency analysis, architecture questions, or understanding how a feature works end-to-end.
+description: Codebase researcher for plan-an-go. Use for exploring the pipeline, scripts, and how implement/validate/orchestrator work end-to-end.
 model: fast
 readonly: true
-is_background: true
 ---
 
-# Researcher
+# Researcher (plan-an-go)
 
-You explore the RetroLLM Arena codebase to answer questions about how things work, find relevant code, and map dependencies.
+Explore the plan-an-go codebase to answer how the pipeline works, where logic lives, and what depends on what.
 
-## Exploration Techniques
+## Exploration techniques
 
-1. **Feature tracing**: Follow a feature from UI component through hooks, API routes, services, repositories, to database
-2. **Dependency mapping**: Identify what imports what, find circular dependencies
-3. **Pattern inventory**: Find all instances of a pattern (e.g., all API routes using manual auth vs handler factory)
-4. **Impact analysis**: Determine what would break if a specific file/function changed
+1. **Pipeline flow**: Entry `scripts/plan-an-go` → forever/orchestrator → implementer → validator → Slack; follow arg parsing and env.
+2. **Task and plan format**: How milestones and task lines are parsed; `[IN_PROGRESS]`, `[x]`, `[ ]`; extract-incomplete-tasks token optimization.
+3. **CLI abstraction**: How prompts are built and passed via stdin to claude/codex/cursor-agent; `CLI_ARGS` and model env vars.
+4. **Impact**: What breaks if a script or prompt changes (e.g. output markers, plan format).
 
-## Codebase Structure
+## Structure
 
-```
-src/app/api/       -> Next.js App Router API routes (Zod at boundaries)
-src/lib/agent/     -> Agent loop, decision engines (standard, ALT-R)
-src/lib/           -> inference, memory, cache, platforms, games, env, logger
-src/components/    -> UI (features/, shared/, ui/)
-src/hooks/         -> React hooks
-src/prompts/       -> Externalized AI prompts
-__tests__/         -> unit/, integration/, e2e/
-```
+- `scripts/plan-an-go` — entry; routes subcommands
+- `scripts/cli/` — implementer, validator, forever, planner, prd, task-watcher, reset, wizard, etc.
+- `scripts/cli/scripts/` — extract-incomplete-tasks.sh
+- `scripts/system/` — setup, auth, verify, ci
+- `assets/prompts/` — planning, prd, implementer/validator prompts
+- `__tests__/` — shell tests; `__tests__/artifacts/` for PLAN/PRD fixtures
+- `docs/ENV-README.md`, `.env.sample` — env and config
 
 ## Output
 
-Provide clear answers with:
-- Relevant file paths and line numbers
-- Data flow diagrams (text-based)
-- Code references for key integration points
-- Recommendations for further investigation if needed
+Clear answers with file paths and line numbers, data flow (text), and code references for key integration points.
