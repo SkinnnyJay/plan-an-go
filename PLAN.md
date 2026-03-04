@@ -48,7 +48,7 @@
 [x] - M1:5- Write the number 4 on line 4
 [x] - M1:6- Write the number 5 on line 5
 [x] - M1:7- Write the number 6 on line 6
-[ ] - M1:8- Write the number 7 on line 7
+[x] - M1:8- Write the number 7 on line 7
 [ ] - M1:9- Write the number 8 on line 8
 [ ] - M1:10- Write the number 9 on line 9
 [ ] - M1:11- Write the number 10 on line 10
