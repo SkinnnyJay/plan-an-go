@@ -44,7 +44,7 @@
 [x] - M1:1- Create or overwrite ./test.txt in the project root
 [x] - M1:2- Write the number 1 on line 1
 [x] - M1:3- Write the number 2 on line 2
-[ ] - M1:4- Write the number 3 on line 3
+[x] - M1:4- Write the number 3 on line 3
 [ ] - M1:5- Write the number 4 on line 4
 [ ] - M1:6- Write the number 5 on line 5
 [ ] - M1:7- Write the number 6 on line 6
