@@ -9,7 +9,7 @@
 	planner prd prd-from-plan reset split example-count \
 	file-watch task-watcher task-watcher-minimal plan-check slack-update \
 	lint format format-write check ci build \
-	setup install-clis auth-cli verify
+	setup link install-clis auth-cli verify
 
 help:
 	@echo "plan-an-go targets (or use npm run from repo root):"
@@ -72,6 +72,7 @@ help:
 	@echo ""
 	@echo "System"
 	@echo "  make setup                       — Run system setup (npm run setup)"
+	@echo "  make link                        — Register plan-an-go and pag on PATH (npm link only)"
 	@echo "  make install-clis                — Install CLIs (npm run install-clis)"
 	@echo "  make auth-cli                    — Authenticate CLIs (npm run auth-cli)"
 	@echo "  make verify                      — Verify CLIs/keys (npm run verify)"
@@ -177,7 +178,10 @@ ci build:
 	./scripts/system/ci.sh
 
 setup:
-	./scripts/system/setup.sh
+	./scripts/plan-an-go setup
+
+link:
+	./scripts/plan-an-go link
 
 install-clis:
 	./scripts/system/install-clis.sh

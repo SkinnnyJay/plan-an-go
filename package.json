@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Plan-driven CLI orchestrator: implement and validate in a loop until your PLAN.md is done. Works with Claude, Codex, and Cursor.",
   "bin": {
-    "plan-an-go": "./scripts/plan-an-go"
+    "plan-an-go": "./scripts/plan-an-go",
+    "pag": "./scripts/plan-an-go"
   },
   "scripts": {
     "prepublishOnly": "rm -f scripts/history.log scripts/*.log .tmp/* PLAN.md",
@@ -16,10 +17,11 @@
     "test:todo-list": "./__tests__/run-tests.sh --large --test todo-list",
     "test:vacation-airbnb": "./__tests__/run-tests.sh --large --test vacation-airbnb",
     "test:youtube-clone": "./__tests__/run-tests.sh --large --test youtube-clone",
-    "setup": "./scripts/system/setup.sh",
+    "setup": "./scripts/plan-an-go setup",
     "install-clis": "./scripts/system/install-clis.sh",
     "auth-cli": "./scripts/system/auth-cli.sh",
     "verify": "./scripts/system/verify.sh",
+    "link": "./scripts/plan-an-go link",
     "reset": "./scripts/cli/plan-an-go-reset.sh",
     "plan-an-go": "./scripts/plan-an-go run",
     "plan-an-go:run": "./scripts/plan-an-go run",
