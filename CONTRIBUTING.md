@@ -38,6 +38,18 @@ Thanks for your interest in contributing. Here’s how to get started.
 
 After your first merged contribution, add your name (and optional link) to [CONTRIBUTORS.md](CONTRIBUTORS.md) in alphabetical order.
 
+## Publishing (maintainers)
+
+To publish a new version to npm:
+
+1. Bump version in `package.json` (e.g. `npm version patch`).
+2. Run `npm run check` and fix any lint/format issues.
+3. Update [CHANGELOG.md](CHANGELOG.md) with the new version and changes.
+4. Commit, tag (e.g. `git tag v1.0.1`), and push.
+5. Run `npm publish` from the repo root (requires npm login and publish rights).
+
+If the package is scoped (e.g. `@username/plan-an-go`), `publishConfig.access` in `package.json` is set to `"public"` so the package is visible on the public registry.
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the same license as the project: [MIT](LICENSE).
