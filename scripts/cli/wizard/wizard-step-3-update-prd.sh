@@ -1,5 +1,6 @@
 #!/bin/bash
 # wizard-step-3-update-prd.sh — Update PRD from revision notes (run plan-an-go prd --in PRD --prompt revisions)
+# Uses assets/prompts/prd-revision.md (or PLAN_AN_GO_PRD_REVISION_PROMPT_FILE) for the prompt template.
 # Usage: ./wizard-step-3-update-prd.sh [--prd-path PATH] [--revisions-file PATH]
 
 set -e
@@ -7,9 +8,14 @@ set -o pipefail
 
 WIZARD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(cd "$WIZARD_DIR/../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ROOT="${PLAN_AN_GO_ROOT:-$(pwd)}"
 TMP_DIR="${PLAN_AN_GO_TMP:-./tmp}"
 STATE_FILE="${WIZARD_STATE_FILE:-$TMP_DIR/wizard-state}"
+PROMPTS_DIR="${PLAN_AN_GO_PROMPTS_DIR:-$REPO_ROOT/assets/prompts}"
+[ -n "${PLAN_AN_GO_PROMPTS_DIR:-}" ] && [ "${PLAN_AN_GO_PROMPTS_DIR#/}" = "$PLAN_AN_GO_PROMPTS_DIR" ] && PROMPTS_DIR="$REPO_ROOT/$PLAN_AN_GO_PROMPTS_DIR"
+REVISION_PROMPT_FILE="${PLAN_AN_GO_PRD_REVISION_PROMPT_FILE:-$PROMPTS_DIR/prd-revision.md}"
+[ -n "${PLAN_AN_GO_PRD_REVISION_PROMPT_FILE:-}" ] && [ "${PLAN_AN_GO_PRD_REVISION_PROMPT_FILE#/}" = "$PLAN_AN_GO_PRD_REVISION_PROMPT_FILE" ] && REVISION_PROMPT_FILE="$REPO_ROOT/$PLAN_AN_GO_PRD_REVISION_PROMPT_FILE"
 
 PRD_PATH=""
 REVISIONS_FILE=""
@@ -45,9 +51,14 @@ if [ -z "$REVISIONS_FILE" ] || [ ! -s "$REVISIONS_FILE" ]; then
   exit 0
 fi
 
-REV_PROMPT="Apply these revision notes to the PRD. Output only the updated PRD.
+if [ -f "$REVISION_PROMPT_FILE" ]; then
+  REV_PROMPT=$(cat "$REVISION_PROMPT_FILE")
+  REV_PROMPT="${REV_PROMPT//\{\{REVISION_NOTES\}\}/$(cat "$REVISIONS_FILE")}"
+else
+  REV_PROMPT="Apply these revision notes to the PRD. Output only the updated PRD.
 
 Revision notes:
 $(cat "$REVISIONS_FILE")"
+fi
 (cd "$ROOT" && "$SCRIPT_DIR/plan-an-go" prd --in "$PRD_PATH" --out "$PRD_PATH" --prompt="$REV_PROMPT" ${WIZARD_CLI:+--cli "$WIZARD_CLI"})
 echo "[wizard] Step 3 done." >&2

@@ -31,6 +31,8 @@ Copy `.env.sample` to `.env` and set values. This doc lists every key, default, 
 | `PLAN_AN_GO_VERBOSE` | Forever: full iteration summaries and plan-check output. | `false` | `true`, `false` | Or use `--verbose`; overrides default one-line progress. |
 | `PLAN_AN_GO_QUIET` | Forever: only header, errors, and final completion/stop; no per-iteration progress. | `false` | `true`, `false` | Or use `--quiet`; useful for background runs. |
 | `PLAN_AN_GO_STRICT` | Require plan to be `<work>`-compliant (milestones and tasks inside `<work>...</work>`). Non-compliant plans exit 1. | `false` | `true`, `false` | Or use `--strict` on forever, run, or plan-check; see README. |
+| `PLAN_AN_GO_PROMPTS_DIR` | Base directory for planner, PRD, prd-from-plan, and wizard prompt templates. Relative to repo root or absolute. | `assets/prompts` (under script repo root) | `assets/prompts`, `/path/to/prompts` | To use a different template directory; see `assets/prompts/README.md`. |
+| `PLAN_AN_GO_PRD_REVISION_PROMPT_FILE` | Wizard step 3: prompt template for applying revision notes to a PRD. Placeholder `{{REVISION_NOTES}}`. Relative to repo root or absolute. | `assets/prompts/prd-revision.md` | `assets/prompts/prd-revision.md` | To customize the revision prompt used by `wizard-step-3-update-prd.sh`. |
 | **CLI auth** |
 | `PLAN_AN_GO_ANTHROPIC_API_KEY` | Anthropic API key for Claude CLI. | (none) | `sk-ant-...` | To skip interactive auth when using `claude`. |
 | `PLAN_AN_GO_OPENAI_API_KEY` | OpenAI API key for Codex CLI; also used for TTS when `PLAN_AN_GO_TTS_AFTER_TASK=true`. | (none) | `sk-...` | To skip interactive auth when using `codex`, or to enable spoken task summaries. |

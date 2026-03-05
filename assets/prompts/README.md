@@ -1,6 +1,6 @@
 # Prompt assets
 
-Optional prompt templates for the implementer, validator, **planner**, and **PRD generator**. The CLI scripts build prompts inline by default; this folder is for overrides or customizations (e.g. `template.md`, `planning.md`, `prd-template.md`, `prd.md`) when wired into your workflow.
+Optional prompt templates for the implementer, validator, **planner**, **PRD generator**, and **wizard**. The CLI scripts and wizard read templates from this folder (or from the path set by `PLAN_AN_GO_PROMPTS_DIR` in `.env`). See `docs/ENV-README.md` for override variables.
 
 **Single source of truth for plans:** Both the **planner script** (`plan-an-go-planner.sh`) and the **generate-plan skill** (in `.cursor/skills/`, `.claude/skills/`, `.agents/skills/`) use these files so that script-driven and chat-driven plan generation produce the same format. The skill instructs the agent to read `template.md` and `planning.md` when generating a plan in chat; the planner script injects them when run from the CLI.
 
@@ -62,6 +62,10 @@ The planner uses the same `--cli` and `--cli-flags` as `plan-an-go.sh`, so you c
 ```
 
 Or via npm: `npm run plan-an-go-prd -- --prompt="..." [--out PRD.md]`. The generated PRD can be passed to the planner: `npm run plan-an-go-planner -- PRD.md`.
+
+## Wizard (PRD revision)
+
+- **`prd-revision.md`** — Template used by **`scripts/cli/wizard/wizard-step-3-update-prd.sh`** when applying revision notes to a PRD. Placeholder `{{REVISION_NOTES}}` is replaced with the user’s revision text. Override with `PLAN_AN_GO_PRD_REVISION_PROMPT_FILE` in `.env` (path relative to repo root or absolute).
 
 ## TTS summary (spoken announcement after each task)
 

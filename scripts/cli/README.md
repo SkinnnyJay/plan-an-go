@@ -26,7 +26,7 @@ Same behavior, fixed CLI: `plan-an-go-claude.sh`, `plan-an-go-codex.sh`, `plan-a
 | `cli/wizard/wizard-step-5-write-file.sh` | Checkpoint: file written at step 1 path. |
 | `cli/wizard/wizard-step-6-launch.sh` | Ask to launch `plan-an-go forever --plan PLAN.md`; optionally generate PLAN from PRD first. |
 
-Config: `cli/wizard/wizard-config.json` (defaults for path, CLI, options). Pass args to skip prompts (e.g. `--prd-out PRD.md --prompt "..."`). Orchestrator supports `--skip N` to skip steps 1..N.
+Config: `cli/wizard/wizard-config.json` (defaults for path, CLI, options). Pass args to skip prompts (e.g. `--prd-out PRD.md --prompt "..."`). Orchestrator supports `--skip N` to skip steps 1..N. Wizard steps use prompt templates from `assets/prompts/` (override with `PLAN_AN_GO_PROMPTS_DIR`, `PLAN_AN_GO_PRD_REVISION_PROMPT_FILE`); see **`cli/wizard/README.md`** and `docs/ENV-README.md`.
 
 ## Helpers
 

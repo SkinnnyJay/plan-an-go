@@ -1,4 +1,5 @@
 {
+  "_templatesRef": "Prompt/template paths: planner and PRD use assets/prompts/ (override with PLAN_AN_GO_PROMPTS_DIR). Step 3 uses assets/prompts/prd-revision.md (override with PLAN_AN_GO_PRD_REVISION_PROMPT_FILE). See scripts/cli/wizard/README.md and docs/ENV-README.md.",
   "steps": [
     {
       "id": "prd",
