@@ -9,7 +9,8 @@
             "prompt_template_file": "./agents/prompts/prompt_template.md",
             "system_prompt_file": "./agents/prompts/system_prompt.md",
             "user_prompt_file": "./agents/prompts/user_prompt.md",
-            "mcp_file": "./agents/mcps/mcp.json"
+            "mcp_file": "./agents/mcps/mcp.json",
+            "color": "#000"
         },
         {
             "name": "agent-02",
@@ -20,7 +21,8 @@
             "prompt_template_file": "./agents/prompts/prompt_template.md",
             "system_prompt_file": "./agents/prompts/system_prompt.md",
             "user_prompt_file": "./agents/prompts/user_prompt.md",
-            "mcp_file": "./agents/mcps/mcp.json"
+            "mcp_file": "./agents/mcps/mcp.json",
+            "color": "#000"
         },
         {
             "name": "agent-03",
@@ -31,7 +33,8 @@
             "prompt_template_file": "./agents/prompts/prompt_template.md",
             "system_prompt_file": "./agents/prompts/system_prompt.md",
             "user_prompt_file": "./agents/prompts/user_prompt.md",
-            "mcp_file": "./agents/mcps/mcp.json"
+            "mcp_file": "./agents/mcps/mcp.json",
+            "color": "#000"
         }
     ],
     "swarm": [
@@ -45,7 +48,8 @@
             "user_prompt_file": "./agents/prompts/user_prompt.md",
             "cli": "codex",
             "cli_flags": "--yolo",
-            "mcp_file": "./agents/mcps/swarm-01-mcp.json"
+            "mcp_file": "./agents/mcps/swarm-01-mcp.json",
+            "color": "#000"
         }
     ],
     "sub_agents": [
@@ -58,7 +62,8 @@
             "prompt_template_file": "./agents/prompts/sub-agent-01-prompt_template.md",
             "system_prompt_file": "./agents/prompts/sub-agent-01-system_prompt.md",
             "user_prompt_file": "./agents/prompts/sub-agent-01-user_prompt.md",
-            "mcp_file": "./agents/mcps/sub-agent-01-mcp.json"
+            "mcp_file": "./agents/mcps/sub-agent-01-mcp.json",
+            "color": "#000"
         },
         {
             "name": "sub-agent-02",
@@ -69,11 +74,13 @@
             "prompt_template_file": "./agents/prompts/sub-agent-02-prompt_template.md",
             "system_prompt_file": "./agents/prompts/sub-agent-02-system_prompt.md",
             "user_prompt_file": "./agents/prompts/sub-agent-02-user_prompt.md",
-            "mcp_file": "./agents/mcps/sub-agent-02-mcp.json"
+            "mcp_file": "./agents/mcps/sub-agent-02-mcp.json",
+            "color": "#000"
         }
     ],
     "sub_agent_config": {
         "default_cli": "codex",
-        "default_cli_flags": "--yolo"
+        "default_cli_flags": "--yolo",
+        "default_color": "#000"
     }
 }
