@@ -364,9 +364,22 @@ play_tts_after_task() {
 #═══════════════════════════════════════════════════════════════════════════════
 # FAIL-EARLY VALIDATION
 #═══════════════════════════════════════════════════════════════════════════════
-# Resolve plan file to absolute path for all checks and child scripts
+# Resolve plan file to absolute path for all checks and child scripts.
+# Relative paths are tried under workspace (REPO_ROOT) first; if not found, under script repo root
+# so that --plan ./tmp/todo-tmp/PLAN.md works when run from repo root with --out-dir ./tmp/todo-tmp.
 if [[ "$PLAN_FILE" != /* ]]; then
-  PLAN_FILE="$REPO_ROOT/$PLAN_FILE"
+  candidate="$REPO_ROOT/$PLAN_FILE"
+  if [ -f "$candidate" ]; then
+    PLAN_FILE="$candidate"
+  else
+    script_repo="$(cd "$SCRIPT_DIR/../.." && pwd)"
+    candidate="$script_repo/$PLAN_FILE"
+    if [ -f "$candidate" ]; then
+      PLAN_FILE="$candidate"
+    else
+      PLAN_FILE="$REPO_ROOT/$PLAN_FILE"
+    fi
+  fi
 fi
 
 # Validate plan file exists
@@ -780,12 +793,13 @@ get_pid_cpu_mem() {
 }
 
 # Spinner while multiple PIDs are running (e.g. N implementers). Usage: spinner_bounce_multi "Message" pid1 pid2 ...
+# Shows aggregate CPU % and memory (RSS) across all PIDs.
 spinner_bounce_multi() {
   local msg="$1"
   shift
   local pids=("$@")
   local frames=("[=    ]" "[ =   ]" "[  =  ]" "[   = ]" "[    =]" "[   = ]" "[  =  ]" "[ =   ]")
-  local i=0 start elapsed any p
+  local i=0 start elapsed any p agg c r cpu_sum rss_sum rss_mb
   start=$(date +%s)
   while true; do
     any=false
@@ -794,7 +808,19 @@ spinner_bounce_multi() {
     done
     [ "$any" = false ] && break
     elapsed=$(($(date +%s) - start))
-    printf "\r  %s %s · Elapsed: %ds    " "${frames[i % 8]}" "$msg" "$elapsed" >&2
+    agg=""
+    for p in "${pids[@]}"; do
+      kill -0 "$p" 2>/dev/null && agg="$agg $(get_pid_cpu_mem "$p")"
+    done
+    cpu_sum="0"
+    rss_sum=0
+    if [ -n "$agg" ]; then
+      read -r c r <<< $(echo "$agg" | awk '{ c=0; r=0; for(i=1;i<=NF;i+=2) c+=$i; for(i=2;i<=NF;i+=2) r+=$i; printf "%.1f %d", c, r }' 2>/dev/null) || true
+      [ -n "$c" ] && cpu_sum="$c"
+      [ -n "$r" ] && rss_sum=$r
+    fi
+    rss_mb=$((rss_sum / 1024))
+    printf "\r  %s %s · Elapsed: %ds · CPU %s%% · %d MB    " "${frames[i % 8]}" "$msg" "$elapsed" "$cpu_sum" "$rss_mb" >&2
     i=$((i + 1))
     sleep 0.15
   done
@@ -1092,6 +1118,9 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
       impl_exit=0
       slot_pid=()
       slot_out=()
+      pool_start=$(date +%s)
+      pool_frame=0
+      pool_frames=("[=    ]" "[ =   ]" "[  =  ]" "[   = ]" "[    =]" "[   = ]" "[  =  ]" "[ =   ]")
       for idx in $(seq 0 $((CONCURRENCY - 1))); do
         agent_id=$(printf 'AGENT_%02d' "$((idx + 1))")
         if mark_one_incomplete_with_agent "$PLAN_FILE" "$agent_id"; then
@@ -1111,27 +1140,53 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
         done
         return 1
       }
+      # Portable "wait for any child": wait -n is Bash 4.3+ and not available on macOS (Bash 3.2)
       while any_running; do
-        wait -n
-        slot_exit=$?
-        [ $slot_exit -ne 0 ] && impl_exit=$slot_exit
+        found=0
         for j in $(seq 0 $((CONCURRENCY - 1))); do
           [ -z "${slot_pid[$j]:-}" ] && continue
-          kill -0 "${slot_pid[$j]}" 2>/dev/null && continue
-          [ -f "${slot_out[$j]:-}" ] && mark_task_complete_from_implementer_output "${slot_out[$j]}" "$PLAN_FILE"
-          [ -f "${slot_out[$j]:-}" ] && cat "${slot_out[$j]}" >> "$impl_output"
-          strip_in_progress_from_completed_lines "$PLAN_FILE"
-          slot_pid[$j]=""
-          agent_id=$(printf 'AGENT_%02d' "$((j + 1))")
-          if mark_one_incomplete_with_agent "$PLAN_FILE" "$agent_id"; then
-            out_f=$(mktemp "$TMP_DIR/forever-agent.XXXXXX")
-            slot_out[$j]="$out_f"
-            PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS PLAN_AN_GO_AGENT_ID="$agent_id" "$IMPL_SCRIPT" > "$out_f" 2>&1 &
-            slot_pid[$j]=$!
+          if ! kill -0 "${slot_pid[$j]}" 2>/dev/null; then
+            slot_exit=0
+            wait "${slot_pid[$j]}" 2>/dev/null || slot_exit=$?
+            [ $slot_exit -ne 0 ] && impl_exit=$slot_exit
+            [ -f "${slot_out[$j]:-}" ] && mark_task_complete_from_implementer_output "${slot_out[$j]}" "$PLAN_FILE"
+            [ -f "${slot_out[$j]:-}" ] && cat "${slot_out[$j]}" >> "$impl_output"
+            strip_in_progress_from_completed_lines "$PLAN_FILE"
+            slot_pid[$j]=""
+            agent_id=$(printf 'AGENT_%02d' "$((j + 1))")
+            if mark_one_incomplete_with_agent "$PLAN_FILE" "$agent_id"; then
+              out_f=$(mktemp "$TMP_DIR/forever-agent.XXXXXX")
+              slot_out[$j]="$out_f"
+              PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS PLAN_AN_GO_AGENT_ID="$agent_id" "$IMPL_SCRIPT" > "$out_f" 2>&1 &
+              slot_pid[$j]=$!
+            fi
+            found=1
+            break
           fi
-          break
         done
+        if [ "$found" -eq 0 ] && [ "$QUIET" != "true" ]; then
+          agg=""
+          n_running=0
+          for j in $(seq 0 $((CONCURRENCY - 1))); do
+            [ -z "${slot_pid[$j]:-}" ] && continue
+            if kill -0 "${slot_pid[$j]}" 2>/dev/null; then
+              n_running=$((n_running + 1))
+              agg="$agg $(get_pid_cpu_mem "${slot_pid[$j]}")"
+            fi
+          done
+          pool_elapsed=$(($(date +%s) - pool_start))
+          pool_cpu="0"
+          pool_rss_mb=0
+          if [ -n "$agg" ]; then
+            read -r pool_cpu pool_rss <<< $(echo "$agg" | awk '{ c=0; r=0; for(i=1;i<=NF;i+=2) c+=$i; for(i=2;i<=NF;i+=2) r+=$i; printf "%.1f %d", c, r }' 2>/dev/null) || true
+            [ -n "${pool_rss:-}" ] && pool_rss_mb=$((pool_rss / 1024))
+          fi
+          printf "\r  %s Pool: %d agents · %ds · CPU %s%% · %d MB    " "${pool_frames[pool_frame % 8]}" "$n_running" "$pool_elapsed" "$pool_cpu" "$pool_rss_mb" >&2
+          pool_frame=$((pool_frame + 1))
+        fi
+        [ "$found" -eq 0 ] && sleep 0.5
       done
+      [ "$QUIET" != "true" ] && printf "\r  ✓ Pool done · %ds                    \n" "$(($(date +%s) - pool_start))" >&2
       for idx in $(seq 0 $((CONCURRENCY - 1))); do
         [ -f "${slot_out[$idx]:-}" ] && rm -f "${slot_out[$idx]}"
       done
