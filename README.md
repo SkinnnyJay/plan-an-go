@@ -24,7 +24,7 @@ Automated **implement → validate** pipeline driven by a plan file (e.g. `PLAN.
 | [Examples](#examples) | count, todo, journal, and more |
 | [Project layout](#project-layout) | Repo structure |
 | [Documentation](#documentation) | Full docs index (extendable) |
-| [License and contributors](#license-and-contributors) | License, changelog, contributing |
+| [License and contributors](#license-and-contributors) | License, acknowledgments, changelog, contributing |
 
 ---
 
@@ -477,6 +477,10 @@ Extended docs live in **`docs/`**. Use this index to find details and to add new
 ---
 
 ## License and contributors
+
+### Acknowledgments
+
+**[Geoffrey Huntley](https://x.com/GeoffreyHuntley)** is the creator of the **"Ralph Wiggum" loop**, an autonomous AI coding technique where a Bash script runs agents like Claude Code or Amp repeatedly until a task is completed. It functions as a `while(true)` loop that uses git for persistence, enabling AI to handle complex, multi-step software development tasks while managing context window limitations. plan-an-go's implement → validate loop is inspired by this approach.
 
 ### Links
 
