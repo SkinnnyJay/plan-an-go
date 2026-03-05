@@ -1,14 +1,21 @@
-[2026-03-04T23:32:51] OpenAI Codex v0.22.0 (research preview)
+<!-- 
+```plan_meta_data
+{"created_by":"plan-an-go-prd","created_at":"2026-03-05T11:46:12Z","last_updated":"2026-03-05T11:46:12Z","generated_cli":"codex"}
+```
+-->
+
+
+[2026-03-05T11:45:55] OpenAI Codex v0.22.0 (research preview)
 --------
 workdir: /Volumes/BlackBox/GitHub/plan-an-go
 model: gpt-5.2-codex
 provider: openai
 approval: never
-sandbox: read-only
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
 reasoning effort: high
 reasoning summaries: auto
 --------
-[2026-03-04T23:32:51] User instructions:
+[2026-03-05T11:45:55] User instructions:
 You are a product requirements author. Your job is to produce a single PRD (Product Requirements Document) in Markdown that is detailed, descriptive, and structured.
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -40,6 +47,14 @@ PRD FORMAT (match this structure)
 ═══════════════════════════════════════════════════════════════════════════════
 
 # PRD — <Title>
+
+Optional (scripts inject when generating): at the very top, a metadata block wrapped in HTML comments so previews do not render it:
+
+<!-- 
+```plan_meta_data
+{"created_by":"plan-an-go-prd|plan-an-go-prd-from-plan|generate-prd","created_at":"<ISO 8601>","last_updated":"<ISO 8601>","generated_cli":"claude|codex|cursor-agent|gemini|goose|opencode"}
+```
+-->
 
 ## Overview
 2–4 sentences: what this product or feature is, who it is for, and why it matters.
@@ -85,6 +100,14 @@ REFERENCE TEMPLATE (match this structure)
 # PRD — &lt;Product or feature name&gt;
 
 **Default output file:** `./PRD.md` (override with `--out` when using the PRD generator script.)
+
+When generating via the PRD script or skills, include at the top a metadata block inside HTML comments (scripts add it automatically; skills should emit it) so previews do not render it:
+
+<!-- 
+```plan_meta_data
+{"created_by":"plan-an-go-prd|generate-prd","created_at":"<ISO 8601>","last_updated":"<ISO 8601>","generated_cli":"<claude|codex|cursor-agent|gemini|goose|opencode>"}
+```
+-->
 
 ---
 
@@ -156,59 +179,59 @@ Revision notes:
 END INPUT DOCUMENT
 
 
-[2026-03-04T23:33:00] thinking
+[2026-03-05T11:46:00] thinking
 
-**Deciding default PRD generation approach**
+**Creating generic PRD with no input**
 
-Since no revision notes were provided, I'll generate a generic yet detailed PRD starting with "# PRD —" and placeholders labeled "TBD" to meet format requirements without assuming nonexistent input.
-**Confirming detailed PRD creation for revision tool**
+No base PRD or revision notes were provided, so I'll generate a detailed generic PRD template for a "PRD Revision Process" to match the request's context.
+**Aligning PRD to prompt with inferred product**
 
-I'll produce a full, structured PRD titled "PRD Revision Assistant" with detailed sections and plausible content, strictly following the given markdown format and instructions to output only the PRD without any extra text.
-[2026-03-04T23:33:10] codex
-**Confirming detailed PRD creation for revision tool**
+I'm drafting a detailed PRD for a "PRD Revision Assistant" tool that applies revision notes to existing PRDs, matching the prompt's intent despite missing input data.
+[2026-03-05T11:46:06] codex
+**Aligning PRD to prompt with inferred product**
 
-I'll produce a full, structured PRD titled "PRD Revision Assistant" with detailed sections and plausible content, strictly following the given markdown format and instructions to output only the PRD without any extra text.
-[2026-03-04T23:33:10] codex
+I'm drafting a detailed PRD for a "PRD Revision Assistant" tool that applies revision notes to existing PRDs, matching the prompt's intent despite missing input data.
+[2026-03-05T11:46:06] codex
 
 # PRD — PRD Revision Assistant
 
 ## Overview
-A lightweight assistant that updates existing PRDs based on revision notes while preserving a required structure and formatting rules. It is designed for product managers, technical writers, and engineering leads who need consistent, planner-ready requirements documents. The tool reduces manual editing effort and prevents structural drift that breaks downstream automation.
+PRD Revision Assistant is a tool that takes an existing PRD and a set of revision notes, then outputs a refined PRD that preserves the original structure while applying the requested updates. It is designed for product managers and technical writers who need consistent, traceable edits without manual formatting. The tool ensures requirements remain labeled and sections stay aligned to a strict template. This reduces editing time and improves downstream planning accuracy.
 
 ## Goals
-- **Goal 1:** Users can apply revision notes to a PRD with minimal manual editing.
-- **Goal 2:** Output always conforms to the required PRD structure for downstream tools.
-- **Goal 3:** Changes are traceable, preserving intent and section integrity.
+- **Goal 1:** Apply revision notes to PRDs with zero manual reformatting.
+- **Goal 2:** Preserve required PRD structure and labels on every output.
+- **Goal 3:** Produce clear, testable updates that are ready for planning tools.
 
 ## Non-goals (out of scope)
-- Automatic generation of product plans, user stories, or implementation tasks.
-- Long-term storage, versioning, or collaboration features.
-- Rich text editing or WYSIWYG interfaces.
+- Automated generation of a brand-new PRD from scratch without any input.
+- Real-time collaborative editing or version control features.
+- UI-based document editing; this is a text-in/text-out tool only.
 
 ## User personas / stakeholders
-- **Primary:** Product manager or requirements author who needs fast, structured PRD updates.
-- **Secondary:** Engineering lead or planner tool that consumes the PRD for task planning.
+- **Primary:** Product managers who need fast, consistent PRD updates.
+- **Secondary:** Technical writers who maintain PRD templates and formatting.
 
 ## Requirements
 
 ### Functional
-- **F1:** Accept an existing PRD and a set of revision notes as input.
-- **F2:** Apply revisions while preserving the required section headings and order.
-- **F3:** Ensure all required sections exist; if missing, insert them with placeholder content.
-- **F4:** Label functional and non-functional requirements with stable identifiers (e.g., F1, NF1).
-- **F5:** Output plain Markdown without extra commentary, preambles, or code fences.
+- **F1:** Accept an input PRD document and a separate revision notes section.
+- **F2:** Output a revised PRD that matches the required template structure exactly.
+- **F3:** Preserve existing requirement IDs (e.g., F1, NF2) unless explicitly changed in notes.
+- **F4:** Apply additions, removals, and edits to Goals, Requirements, and Success criteria when specified.
+- **F5:** Reject outputs that deviate from the mandated section order or headings.
 
 ### Non-functional
-- **NF1:** Deterministic output for identical inputs.
-- **NF2:** Validate structure and fail with a clear error if input is irreconcilable.
-- **NF3:** Complete processing for typical PRDs (<10 pages) in under 2 seconds.
+- **NF1:** Produce output in under 2 seconds for PRDs up to 10,000 words.
+- **NF2:** Ensure zero extraneous text outside the PRD content.
+- **NF3:** Maintain deterministic output given the same inputs.
 
 ## Success criteria
-- Criterion 1: 100% of outputs pass a strict PRD structure validator.
-- Criterion 2: All revision notes are either applied or explicitly flagged as unresolved.
-- Criterion 3: Users report a ≥50% reduction in time spent updating PRDs.
+- Criterion 1: 100% of outputs conform to the specified PRD structure.
+- Criterion 2: All revision notes are applied or explicitly flagged as conflicting.
+- Criterion 3: Output is accepted by downstream planning tools without manual fixes.
 
 ## Notes / assumptions / risks
-- Assumes revision notes are clear and scoped to existing PRD content.
-- Risk: ambiguous notes may require human judgment; provide a way to flag conflicts.
-[2026-03-04T23:33:16] tokens used: 4526
+- Assumes input PRDs already follow the required template.
+- Risk: ambiguous revision notes may require clarification or lead to incorrect edits.
+[2026-03-05T11:46:12] tokens used: 3131
