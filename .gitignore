@@ -79,8 +79,7 @@ tmp/
 !.worktrees/README.md
 ./agents/.worktrees/*
 
-# Project
-__tests__/
+# Project (tests are tracked for development and CI)
 history.log
 *.log
 .tmp/
