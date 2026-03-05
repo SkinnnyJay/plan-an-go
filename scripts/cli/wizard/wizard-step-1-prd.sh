@@ -1,6 +1,6 @@
 #!/bin/bash
 # wizard-step-1-prd.sh — PRD wizard: questions (path, prompt, CLI) then run plan-an-go prd
-# Usage: ./wizard-step-1-prd.sh [--prd-out PATH] [--prompt "..."] [--cli claude|codex|cursor-agent] [--config PATH]
+# Usage: ./wizard-step-1-prd.sh [--prd-out PATH] [--prompt "..."] [--cli claude|codex|cursor-agent|gemini|goose|opencode] [--config PATH]
 #   With no args, reads wizard-config.json and prompts; otherwise uses args and passes through to prd.
 #   Writes WIZARD_PRD_PATH to state file for later steps.
 
@@ -71,7 +71,7 @@ if [ -f "$CONFIG_FILE" ] && command -v node >/dev/null 2>&1; then
   CLI_DEFAULT=$(node -e "try { const c=require('$CONFIG_FILE'); const q=(c.steps&&c.steps[0]&&c.steps[0].questions)||[]; const p=q.find(x=>x.id==='cli'); console.log(p&&p.default?p.default:'claude'); } catch(e){ console.log('claude'); }")
   [ -z "$PRD_OUT" ] && read -r -p "PRD path [$PRD_DEFAULT]: " PRD_OUT; PRD_OUT="${PRD_OUT:-$PRD_DEFAULT}"
   [ -z "$PROMPT" ] && read -r -p "Product/feature prompt: " PROMPT
-  [ -z "$CLI" ] && read -r -p "CLI (claude|codex|cursor-agent) [$CLI_DEFAULT]: " CLI; CLI="${CLI:-$CLI_DEFAULT}"
+  [ -z "$CLI" ] && read -r -p "CLI (claude|cline|copilot|codex|cursor-agent|droid|gemini|goose|kiro|opencode) [$CLI_DEFAULT]: " CLI; CLI="${CLI:-$CLI_DEFAULT}"
 else
   echo "[wizard] Step 1: PRD" >&2
   [ -z "$PRD_OUT" ] && read -r -p "PRD path [PRD.md]: " PRD_OUT; PRD_OUT="${PRD_OUT:-PRD.md}"

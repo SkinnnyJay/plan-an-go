@@ -20,6 +20,14 @@
 set -e
 set -o pipefail
 ENTRY_SCRIPT="${BASH_SOURCE[0]}"
+# Resolve symlinks (e.g. when run as `pag` or `plan-an-go` via npm link) so SCRIPT_DIR is the repo scripts/ dir
+while [ -L "$ENTRY_SCRIPT" ]; do
+  TARGET="$(readlink "$ENTRY_SCRIPT")"
+  if [[ "$TARGET" != /* ]]; then
+    TARGET="$(cd "$(dirname "$ENTRY_SCRIPT")" && pwd)/$TARGET"
+  fi
+  ENTRY_SCRIPT="$TARGET"
+done
 SCRIPT_DIR="$(cd "$(dirname "$ENTRY_SCRIPT")" && pwd)"
 # Repo root = directory that contains the scripts/ folder
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -48,6 +56,11 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# Strip leading "--" so "pag -- forever --plan PLAN.md" works (npm-style copy-paste)
+if [ ${#REST_ARGS[@]} -gt 0 ] && [ "${REST_ARGS[0]}" = "--" ]; then
+  REST_ARGS=("${REST_ARGS[@]:1}")
+fi
+
 # Load .env from repo root so PLAN_AN_GO_ROOT can override default root
 if [ -f "$REPO_ROOT/.env" ]; then
   set -a
@@ -55,10 +68,11 @@ if [ -f "$REPO_ROOT/.env" ]; then
   . "$REPO_ROOT/.env"
   set +a
 fi
-# Prefer prefixed API keys so CLIs (claude, codex) see keys under standard names
+# Prefer prefixed API keys so CLIs see keys under standard names
 ANTHROPIC_API_KEY="${PLAN_AN_GO_ANTHROPIC_API_KEY:-$ANTHROPIC_API_KEY}"
 OPENAI_API_KEY="${PLAN_AN_GO_OPENAI_API_KEY:-$OPENAI_API_KEY}"
-export ANTHROPIC_API_KEY OPENAI_API_KEY
+GEMINI_API_KEY="${PLAN_AN_GO_GEMINI_API_KEY:-${GEMINI_API_KEY:-$GOOGLE_API_KEY}}"
+export ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY
 
 # Resolve operating root: --root arg > .env PLAN_AN_GO_ROOT > repo root
 if [ -n "$ROOT_ARG" ]; then
@@ -150,16 +164,39 @@ case "$SUBCMD" in
   *) ;;
 esac
 
+# When run via link/global and no explicit root: if user passed --plan with a path that exists in CWD, use CWD as workspace
+WORKSPACE_FOR_RUN="$PLAN_AN_GO_ROOT"
+if [ "$SUBCMD" = "run" ] || [ "$SUBCMD" = "forever" ]; then
+  if [ "$PLAN_AN_GO_ROOT" = "$REPO_ROOT" ]; then
+    PLAN_PATH=""
+    for i in "${!DISPATCH_ARGS[@]}"; do
+      if [ "${DISPATCH_ARGS[i]}" = "--plan" ] && [ $((i+1)) -lt ${#DISPATCH_ARGS[@]} ]; then
+        PLAN_PATH="${DISPATCH_ARGS[i+1]}"
+        break
+      fi
+      if [[ "${DISPATCH_ARGS[i]}" == --plan=* ]]; then
+        PLAN_PATH="${DISPATCH_ARGS[i]#--plan=}"
+        break
+      fi
+    done
+    if [ -n "$PLAN_PATH" ] && [[ "$PLAN_PATH" != /* ]]; then
+      if [ -f "$(pwd)/$PLAN_PATH" ]; then
+        WORKSPACE_FOR_RUN="$(pwd)"
+      fi
+    fi
+  fi
+fi
+
 # Subcommand → script mapping
 case "$SUBCMD" in
   prd-from-plan)
     exec "$SCRIPT_DIR/cli/plan-an-go-prd-from-plan.sh" "${DISPATCH_ARGS[@]}"
     ;;
   run)
-    exec "$SCRIPT_DIR/cli/plan-an-go.sh" --workspace "$PLAN_AN_GO_ROOT" "${DISPATCH_ARGS[@]}"
+    exec "$SCRIPT_DIR/cli/plan-an-go.sh" --workspace "$WORKSPACE_FOR_RUN" "${DISPATCH_ARGS[@]}"
     ;;
   forever)
-    exec "$SCRIPT_DIR/cli/plan-an-go-forever.sh" --workspace "$PLAN_AN_GO_ROOT" "${DISPATCH_ARGS[@]}"
+    exec "$SCRIPT_DIR/cli/plan-an-go-forever.sh" --workspace "$WORKSPACE_FOR_RUN" "${DISPATCH_ARGS[@]}"
     ;;
   validate)
     exec "$SCRIPT_DIR/cli/plan-an-go-validate.sh" "${DISPATCH_ARGS[@]}"

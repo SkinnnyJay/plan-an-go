@@ -1,6 +1,6 @@
 #!/bin/bash
 # wizard-step-2-review-prd.sh — Review PRD: show path, optional CLI review for revision suggestions
-# Usage: ./wizard-step-2-review-prd.sh [--prd-path PATH] [--cli claude|codex|cursor-agent]
+# Usage: ./wizard-step-2-review-prd.sh [--prd-path PATH] [--cli claude|codex|cursor-agent|gemini|goose|opencode]
 #   Outputs path to revision notes file (or empty). State: WIZARD_REVISIONS_FILE (optional).
 
 set -e

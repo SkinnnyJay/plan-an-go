@@ -15,7 +15,7 @@
 #   --in PATH                         Input file (PRD or other doc to plan from)
 #   --out PATH                        Output file (default: ./PLAN.md)
 #   --task-detail L|M|H|XH            Task granularity: L=low, M=medium (default), H=high, XH=extra high
-#   --cli claude|codex|cursor-agent   CLI to use (default: from PLAN_AN_GO_CLI or claude)
+#   --cli claude|cline|copilot|codex|cursor-agent|droid|gemini|goose|kiro|opencode   CLI to use (default: from PLAN_AN_GO_CLI or claude)
 #   --cli-flags "<flags>"             Extra flags for the CLI
 #   --prompt="..."                    Use this string as the planning input instead of a file
 #
@@ -112,9 +112,17 @@ esac
 # Resolve CLI flags: use PLAN_AN_GO_CLI_FLAGS if set, else per-CLI vars
 if [ -z "$CLI_FLAGS" ]; then
   case "$CLI_BIN" in
-    claude) CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
-    codex)  CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
-    *)      ;;
+    claude)         CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
+    cline)          CLI_FLAGS="${PLAN_AN_GO_CLINE_FLAGS:-}" ;;
+    codex)          CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
+    copilot)        CLI_FLAGS="${PLAN_AN_GO_COPILOT_FLAGS:-}" ;;
+    cursor-agent)   CLI_FLAGS="${PLAN_AN_GO_CURSOR_AGENT_FLAGS:-}" ;;
+    droid)          CLI_FLAGS="${PLAN_AN_GO_DROID_FLAGS:-}" ;;
+    gemini)         CLI_FLAGS="${PLAN_AN_GO_GEMINI_FLAGS:-}" ;;
+    goose)          CLI_FLAGS="${PLAN_AN_GO_GOOSE_FLAGS:-}" ;;
+    kiro)           CLI_FLAGS="${PLAN_AN_GO_KIRO_FLAGS:-}" ;;
+    opencode)       CLI_FLAGS="${PLAN_AN_GO_OPENCODE_FLAGS:-}" ;;
+    *)              ;;
   esac
 fi
 
@@ -139,10 +147,13 @@ if [ -n "$INPUT_FILE" ] && [ ! -f "$INPUT_FILE" ]; then
   exit 1
 fi
 
-if [ "$CLI_BIN" != "claude" ] && [ "$CLI_BIN" != "codex" ] && [ "$CLI_BIN" != "cursor-agent" ]; then
-  echo "ERROR: --cli must be 'claude', 'codex', or 'cursor-agent' (got: $CLI_BIN)" >&2
-  exit 1
-fi
+case "$CLI_BIN" in
+  claude|cline|copilot|codex|cursor-agent|droid|gemini|goose|kiro|opencode) ;;
+  *)
+    echo "ERROR: --cli must be 'claude', 'cline', 'copilot', 'codex', 'cursor-agent', 'droid', 'gemini', 'goose', 'kiro', or 'opencode' (got: $CLI_BIN)" >&2
+    exit 1
+    ;;
+esac
 
 if [ ! -f "$PLANNING_PROMPT" ]; then
   echo "ERROR: Planning prompt not found: $PLANNING_PROMPT" >&2
@@ -207,11 +218,32 @@ echo "END INPUT DOCUMENT" >> "$temp_prompt"
 # Invoke CLI (same pattern as plan-an-go.sh)
 CLAUDE_MODEL="${PLAN_AN_GO_CLAUDE_MODEL:-claude-sonnet-4-20250514}"
 CODEX_MODEL="${PLAN_AN_GO_CODEX_MODEL:-}"
+DROID_AUTO="${PLAN_AN_GO_DROID_AUTO:-high}"
+GEMINI_MODEL="${PLAN_AN_GO_GEMINI_MODEL:-gemini-2.5-flash}"
+OPENCODE_MODEL="${PLAN_AN_GO_OPENCODE_MODEL:-}"
 CLI_ARGS=()
 if [ "$CLI_BIN" = "claude" ]; then
   CLI_ARGS=(--model "$CLAUDE_MODEL" --dangerously-skip-permissions)
-elif [ "$CLI_BIN" = "codex" ] && [ -n "$CODEX_MODEL" ]; then
-  CLI_ARGS=(--model "$CODEX_MODEL")
+elif [ "$CLI_BIN" = "cline" ]; then
+  CLI_ARGS=(-y)
+elif [ "$CLI_BIN" = "codex" ]; then
+  CLI_ARGS=(--full-auto)
+  [ -n "$CODEX_MODEL" ] && CLI_ARGS+=(--model "$CODEX_MODEL")
+elif [ "$CLI_BIN" = "copilot" ]; then
+  CLI_ARGS=()
+elif [ "$CLI_BIN" = "cursor-agent" ]; then
+  CLI_ARGS=(--trust)
+elif [ "$CLI_BIN" = "droid" ]; then
+  CLI_ARGS=(exec --auto "$DROID_AUTO")
+elif [ "$CLI_BIN" = "gemini" ]; then
+  CLI_ARGS=(--yolo -m "$GEMINI_MODEL")
+elif [ "$CLI_BIN" = "goose" ]; then
+  CLI_ARGS=()
+elif [ "$CLI_BIN" = "kiro" ]; then
+  CLI_ARGS=(chat --no-interactive)
+elif [ "$CLI_BIN" = "opencode" ]; then
+  CLI_ARGS=(run)
+  [ -n "$OPENCODE_MODEL" ] && CLI_ARGS+=(--model "$OPENCODE_MODEL")
 fi
 if [ -n "$CLI_FLAGS" ]; then
   read -r -a EXTRA_CLI_ARGS <<< "$CLI_FLAGS"
@@ -244,6 +276,14 @@ echo "[planner] Generating plan with $CLI_BIN (task-detail: $TASK_DETAIL)..." >&
 set +e
 if [ "$CLI_BIN" = "codex" ]; then
   codex exec "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_out" 2> "$temp_err" &
+elif [ "$CLI_BIN" = "droid" ]; then
+  droid "${CLI_ARGS[@]}" -f "$temp_prompt" > "$temp_out" 2> "$temp_err" &
+elif [ "$CLI_BIN" = "kiro" ]; then
+  kiro "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" > "$temp_out" 2> "$temp_err" &
+elif [ "$CLI_BIN" = "opencode" ]; then
+  opencode "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" > "$temp_out" 2> "$temp_err" &
+elif [ "$CLI_BIN" = "gemini" ] || [ "$CLI_BIN" = "goose" ] || [ "$CLI_BIN" = "cline" ] || [ "$CLI_BIN" = "copilot" ]; then
+  "$CLI_BIN" "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_out" 2> "$temp_err" &
 else
   "$CLI_BIN" "${CLI_ARGS[@]}" -p "@$temp_prompt" > "$temp_out" 2> "$temp_err" &
 fi
@@ -270,9 +310,19 @@ if [ -s "$temp_err" ]; then
   grep -v '^\[Paste:' "$temp_err" 2>/dev/null | grep -v '^\[Test:' 2>/dev/null | cat >&2 || cat "$temp_err" >&2
 fi
 
-# Write output to target file
+# Write output to target file (prepend plan-an-go metadata for created_by, created_at, last_updated, generated_cli)
 mkdir -p "$(dirname "$OUT_FILE")"
-cat "$temp_out" > "$OUT_FILE"
+METADATA_SCRIPT="$SCRIPT_DIR/scripts/plan-an-go-doc-metadata.sh"
+temp_final=$(mktemp "$TMP_DIR/planner-final.XXXXXX")
+trap 'rm -f "$temp_prompt" "$temp_out" "$temp_err" "$temp_final"' EXIT
+if [ -f "$METADATA_SCRIPT" ]; then
+  bash "$METADATA_SCRIPT" "plan-an-go-planner" "$CLI_BIN" > "$temp_final"
+  echo "" >> "$temp_final"
+  cat "$temp_out" >> "$temp_final"
+else
+  cat "$temp_out" > "$temp_final"
+fi
+mv "$temp_final" "$OUT_FILE"
 echo "[planner] Wrote PLAN to $OUT_FILE" >&2
 
 # Optional: run plan check if available

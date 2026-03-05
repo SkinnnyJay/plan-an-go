@@ -52,6 +52,9 @@ if [ ! -s "$PLAN_FILE" ]; then
 fi
 
 echo -e "${GREEN}1. Plan file found ($(wc -c < "$PLAN_FILE" | tr -d ' ') bytes)${RESET}"
+if ! grep -q 'plan_meta_data' "$PLAN_FILE" 2>/dev/null && ! grep -q '```json metadata' "$PLAN_FILE" 2>/dev/null; then
+  echo -e "${YELLOW}   WARN: No plan-an-go metadata block (<!-- ... plan_meta_data ... -->). Consider regenerating with the planner for traceability.${RESET}"
+fi
 echo ""
 
 # <work> compliance: compliant = has <work>...</work> with at least one task line inside

@@ -1,6 +1,6 @@
 #!/bin/bash
 # plan-an-go.sh — AGENT 1: Implementation Agent
-# Usage: ./plan-an-go.sh [--workspace DIR] [--cli claude|codex|cursor-agent] [--cli-flags "<flags>"] (called by plan-an-go-forever.sh orchestrator)
+# Usage: ./plan-an-go.sh [--workspace DIR] [--cli claude|cline|copilot|codex|cursor-agent|droid|gemini|goose|kiro|opencode] [--cli-flags "<flags>"] (called by plan-an-go-forever.sh orchestrator)
 #
 # This agent focuses ONLY on implementing ONE task from the plan.
 # Validation is handled by a separate agent (plan-an-go-validate.sh).
@@ -54,9 +54,17 @@ export PLAN_AN_GO_STRICT
 # Resolve CLI flags: use PLAN_AN_GO_CLI_FLAGS if set, else per-CLI vars
 if [ -z "$CLI_FLAGS" ]; then
   case "$CLI_BIN" in
-    claude) CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
-    codex)  CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
-    *)      ;;
+    claude)         CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
+    cline)          CLI_FLAGS="${PLAN_AN_GO_CLINE_FLAGS:-}" ;;
+    codex)          CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
+    copilot)        CLI_FLAGS="${PLAN_AN_GO_COPILOT_FLAGS:-}" ;;
+    cursor-agent)   CLI_FLAGS="${PLAN_AN_GO_CURSOR_AGENT_FLAGS:-}" ;;
+    droid)          CLI_FLAGS="${PLAN_AN_GO_DROID_FLAGS:-}" ;;
+    gemini)         CLI_FLAGS="${PLAN_AN_GO_GEMINI_FLAGS:-}" ;;
+    goose)          CLI_FLAGS="${PLAN_AN_GO_GOOSE_FLAGS:-}" ;;
+    kiro)           CLI_FLAGS="${PLAN_AN_GO_KIRO_FLAGS:-}" ;;
+    opencode)       CLI_FLAGS="${PLAN_AN_GO_OPENCODE_FLAGS:-}" ;;
+    *)              ;;
   esac
 fi
 
@@ -85,13 +93,16 @@ fi
 mkdir -p "$TMP_DIR"
 PROGRESS_FILE="$TMP_DIR/progress.log"
 
-if [ "$CLI_BIN" != "claude" ] && [ "$CLI_BIN" != "codex" ] && [ "$CLI_BIN" != "cursor-agent" ]; then
-  echo "------START: IMPLEMENTER------"
-  echo "ERROR: --cli must be 'claude', 'codex', or 'cursor-agent' (got: $CLI_BIN)"
-  echo "VERDICT: FAILED"
-  echo "------END: IMPLEMENTER------"
-  exit 1
-fi
+case "$CLI_BIN" in
+  claude|cline|copilot|codex|cursor-agent|droid|gemini|goose|kiro|opencode) ;;
+  *)
+    echo "------START: IMPLEMENTER------"
+    echo "ERROR: --cli must be 'claude', 'cline', 'copilot', 'codex', 'cursor-agent', 'droid', 'gemini', 'goose', 'kiro', or 'opencode' (got: $CLI_BIN)"
+    echo "VERDICT: FAILED"
+    echo "------END: IMPLEMENTER------"
+    exit 1
+    ;;
+esac
 
 #═══════════════════════════════════════════════════════════════════════════════
 # FAIL-EARLY VALIDATION
@@ -266,9 +277,14 @@ STREAM_OUTPUT="${PLAN_AN_GO_STREAM_OUTPUT:-${STREAM_OUTPUT:-false}}"
 
 CLAUDE_MODEL="${PLAN_AN_GO_CLAUDE_MODEL:-claude-sonnet-4-20250514}"
 CODEX_MODEL="${PLAN_AN_GO_CODEX_MODEL:-}"
+DROID_AUTO="${PLAN_AN_GO_DROID_AUTO:-high}"
+GEMINI_MODEL="${PLAN_AN_GO_GEMINI_MODEL:-gemini-2.5-flash}"
+OPENCODE_MODEL="${PLAN_AN_GO_OPENCODE_MODEL:-}"
 CLI_ARGS=()
 if [ "$CLI_BIN" = "claude" ]; then
   CLI_ARGS=(--model "$CLAUDE_MODEL" --dangerously-skip-permissions)
+elif [ "$CLI_BIN" = "cline" ]; then
+  CLI_ARGS=(-y)
 elif [ "$CLI_BIN" = "codex" ]; then
   # Allow implementer to write files (plan file, code, $PROGRESS_FILE). Without this, Codex
   # may run in read-only sandbox and report "blocked by read-only sandbox".
@@ -276,42 +292,65 @@ elif [ "$CLI_BIN" = "codex" ]; then
   # low-friction automatic execution (workspace-write + approval on-failure).
   CLI_ARGS=(--full-auto)
   [ -n "$CODEX_MODEL" ] && CLI_ARGS+=(--model "$CODEX_MODEL")
+elif [ "$CLI_BIN" = "copilot" ]; then
+  CLI_ARGS=()
+elif [ "$CLI_BIN" = "cursor-agent" ]; then
+  CLI_ARGS=(--trust)
+elif [ "$CLI_BIN" = "droid" ]; then
+  CLI_ARGS=(exec --auto "$DROID_AUTO")
+elif [ "$CLI_BIN" = "gemini" ]; then
+  CLI_ARGS=(--yolo -m "$GEMINI_MODEL")
+elif [ "$CLI_BIN" = "goose" ]; then
+  CLI_ARGS=()
+elif [ "$CLI_BIN" = "kiro" ]; then
+  CLI_ARGS=(chat --no-interactive)
+elif [ "$CLI_BIN" = "opencode" ]; then
+  CLI_ARGS=(run)
+  [ -n "$OPENCODE_MODEL" ] && CLI_ARGS+=(--model "$OPENCODE_MODEL")
 fi
 if [ -n "$CLI_FLAGS" ]; then
   read -r -a EXTRA_CLI_ARGS <<< "$CLI_FLAGS"
   CLI_ARGS+=("${EXTRA_CLI_ARGS[@]}")
 fi
 
-# Pass prompt via stdin for all CLIs to avoid permission/exec issues with temp file paths.
+# Pass prompt via stdin for all CLIs except opencode (run takes prompt as argument; ARG_MAX may limit very large prompts).
 # Use set +e so we always capture exit code and show CLI output/errors before exiting.
 exit_code=0
 set +e
 if [ "$STREAM_OUTPUT" = "true" ]; then
-  # Streaming mode: display output in real-time with colored background
   echo "[implementer] Running $CLI_BIN (streaming)..." >&2
   printf "%b" "${STREAM_BG}" >/dev/tty 2>/dev/null || true
   if [ "$CLI_BIN" = "codex" ]; then
     codex exec "${CLI_ARGS[@]}" - < "$temp_prompt" 2>&1 | tee "$temp_file"
+  elif [ "$CLI_BIN" = "droid" ]; then
+    droid "${CLI_ARGS[@]}" -f "$temp_prompt" 2>&1 | tee "$temp_file"
+  elif [ "$CLI_BIN" = "kiro" ]; then
+    kiro "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" 2>&1 | tee "$temp_file"
+  elif [ "$CLI_BIN" = "opencode" ]; then
+    opencode "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" 2>&1 | tee "$temp_file"
   else
     "$CLI_BIN" "${CLI_ARGS[@]}" - < "$temp_prompt" 2>&1 | tee "$temp_file"
   fi
   exit_code=${PIPESTATUS[0]}
   printf "%b" "${STREAM_RESET}" >/dev/tty 2>/dev/null || true
 else
-  # Batch mode: capture all output, display after
   echo "[implementer] Running $CLI_BIN..." >&2
   if [ "$CLI_BIN" = "codex" ]; then
     codex exec "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_file" 2> "$temp_err"
+  elif [ "$CLI_BIN" = "droid" ]; then
+    droid "${CLI_ARGS[@]}" -f "$temp_prompt" > "$temp_file" 2> "$temp_err"
+  elif [ "$CLI_BIN" = "kiro" ]; then
+    kiro "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" > "$temp_file" 2> "$temp_err"
+  elif [ "$CLI_BIN" = "opencode" ]; then
+    opencode "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" > "$temp_file" 2> "$temp_err"
   else
     "$CLI_BIN" "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_file" 2> "$temp_err"
   fi
   exit_code=$?
   set -e
-  # Output result
   if [ -s "$temp_file" ]; then
     cat "$temp_file"
   fi
-  # Output errors to stderr if any (so user sees why CLI failed)
   if [ -s "$temp_err" ]; then
     grep -v '^\[Paste:' "$temp_err" 2>/dev/null | grep -v '^\[Test:' 2>/dev/null | cat >&2 || cat "$temp_err" >&2
   fi

@@ -1,6 +1,6 @@
 #!/bin/bash
 # plan-an-go-forever.sh — ORCHESTRATOR: Runs Implementer → Validator pipeline
-# Usage: ./plan-an-go-forever.sh [parent_loops] [child_loops] [--no-validate] [--wait-for-all] [--stream] [--no-slack|--slack-enable] [--workspace DIR] [--plan FILE] [--cli claude|codex|cursor-agent] [--concurrency N] [--cli-flags "<flags>"]
+# Usage: ./plan-an-go-forever.sh [parent_loops] [child_loops] [--no-validate] [--wait-for-all] [--stream] [--no-slack|--slack-enable] [--workspace DIR] [--plan FILE] [--cli claude|cline|copilot|codex|cursor-agent|droid|gemini|goose|kiro|opencode] [--concurrency N] [--cli-flags "<flags>"]
 #
 # Implementer uses a 7-step workflow: Plan → Think → Research → Distill → Sub-tasks →
 # Work (with sub-agents if available) → Validate & quantify before check-off.
@@ -26,7 +26,7 @@
 #                    File is overwritten at the start of each iteration.
 #   --workspace    - Run from this directory (default: repo root containing scripts/cli)
 #   --plan         - Plan file path (default: PLAN.md; resolved relative to workspace)
-#   --cli          - LLM CLI to use: claude, codex, or cursor-agent (default: claude)
+#   --cli          - LLM CLI to use: claude, cline, copilot, codex, cursor-agent, droid, gemini, goose, kiro, or opencode (default: claude)
 #   --cli-flags    - Extra flags passed through to the CLI (quoted string)
 #   --concurrency N - Run N implementer agents in parallel; each picks one of the first N
 #                     incomplete tasks. Tasks are marked [IN_PROGRESS]:[AGENT_01] ... [AGENT_N].
@@ -210,9 +210,17 @@ clean_workspace_after_exit() {
 # Resolve CLI flags: use PLAN_AN_GO_CLI_FLAGS if set, else per-CLI vars
 if [ -z "$CLI_FLAGS" ]; then
   case "$CLI_BIN" in
-    claude) CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
-    codex)  CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
-    *)      CLI_FLAGS="" ;;
+    claude)         CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
+    cline)          CLI_FLAGS="${PLAN_AN_GO_CLINE_FLAGS:-}" ;;
+    codex)          CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
+    copilot)        CLI_FLAGS="${PLAN_AN_GO_COPILOT_FLAGS:-}" ;;
+    cursor-agent)   CLI_FLAGS="${PLAN_AN_GO_CURSOR_AGENT_FLAGS:-}" ;;
+    droid)          CLI_FLAGS="${PLAN_AN_GO_DROID_FLAGS:-}" ;;
+    gemini)         CLI_FLAGS="${PLAN_AN_GO_GEMINI_FLAGS:-}" ;;
+    goose)          CLI_FLAGS="${PLAN_AN_GO_GOOSE_FLAGS:-}" ;;
+    kiro)           CLI_FLAGS="${PLAN_AN_GO_KIRO_FLAGS:-}" ;;
+    opencode)       CLI_FLAGS="${PLAN_AN_GO_OPENCODE_FLAGS:-}" ;;
+    *)              CLI_FLAGS="" ;;
   esac
 fi
 
@@ -259,7 +267,8 @@ cd "$REPO_ROOT" || exit 1
 [ "$THREADS_SET_BY_ARG" != "true" ] && SLACK_USE_THREADS="${PLAN_AN_GO_SLACK_USE_THREADS:-${SLACK_USE_THREADS:-true}}"
 ANTHROPIC_API_KEY="${PLAN_AN_GO_ANTHROPIC_API_KEY:-$ANTHROPIC_API_KEY}"
 OPENAI_API_KEY="${PLAN_AN_GO_OPENAI_API_KEY:-$OPENAI_API_KEY}"
-export ANTHROPIC_API_KEY OPENAI_API_KEY
+GEMINI_API_KEY="${PLAN_AN_GO_GEMINI_API_KEY:-${GEMINI_API_KEY:-$GOOGLE_API_KEY}}"
+export ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY
 export STREAM_OUTPUT USE_SLACK
 
 # All pipeline logs and temp files under ./tmp by default.
@@ -293,10 +302,13 @@ case "$PLAN_FILE" in "$REPO_ROOT"/*) DISPLAY_PLAN="./${PLAN_FILE#$REPO_ROOT/}"; 
 case "$LOG_FILE" in "$REPO_ROOT"/*) DISPLAY_LOG="./${LOG_FILE#$REPO_ROOT/}"; esac
 
 # Validate CLI selection first (fail fast before plan file resolution)
-if [ "$CLI_BIN" != "claude" ] && [ "$CLI_BIN" != "codex" ] && [ "$CLI_BIN" != "cursor-agent" ]; then
-  echo "❌ ERROR: --cli must be 'claude', 'codex', or 'cursor-agent' (got: $CLI_BIN)" >&2
-  exit 1
-fi
+case "$CLI_BIN" in
+  claude|cline|copilot|codex|cursor-agent|droid|gemini|goose|kiro|opencode) ;;
+  *)
+    echo "❌ ERROR: --cli must be 'claude', 'cline', 'copilot', 'codex', 'cursor-agent', 'droid', 'gemini', 'goose', 'kiro', or 'opencode' (got: $CLI_BIN)" >&2
+    exit 1
+    ;;
+esac
 
 # If Slack enabled, require at least one token; otherwise disable and warn (do not exit)
 if [ "$USE_SLACK" = "true" ]; then
@@ -426,9 +438,17 @@ fi
 # Validate selected CLI is available
 if ! command -v "$CLI_BIN" &> /dev/null; then
   echo "❌ ERROR: '$CLI_BIN' CLI not found in PATH" >&2
-  if [ "$CLI_BIN" = "claude" ]; then
-    echo "Install: https://docs.anthropic.com/claude/docs/claude-cli" >&2
-  fi
+  case "$CLI_BIN" in
+    claude)   echo "Install: https://docs.anthropic.com/claude/docs/claude-cli" >&2 ;;
+    cline)   echo "Install: https://docs.cline.bot/cline-cli/getting-started" >&2 ;;
+    copilot) echo "Install: https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-in-the-cli" >&2 ;;
+    droid)   echo "Install: https://app.factory.ai/cli" >&2 ;;
+    gemini)   echo "Install: https://github.com/google-gemini/gemini-cli" >&2 ;;
+    goose)   echo "Install: https://github.com/block/goose" >&2 ;;
+    kiro)    echo "Install: https://cli.kiro.dev/" >&2 ;;
+    opencode) echo "Install: https://github.com/opencode-ai/opencode" >&2 ;;
+    *)       ;;
+  esac
   exit 1
 fi
 

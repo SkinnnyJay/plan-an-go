@@ -69,7 +69,7 @@ review_vars() {
   PLAN_AN_GO_ROOT="$(cd "$PLAN_AN_GO_ROOT" && pwd)"
   export PLAN_AN_GO_ROOT
 
-  PLAN_AN_GO_CLI=$(prompt_var "PLAN_AN_GO_CLI (claude|codex|cursor-agent)" "$default_cli")
+  PLAN_AN_GO_CLI=$(prompt_var "PLAN_AN_GO_CLI (claude|cline|copilot|codex|cursor-agent|droid|gemini|goose|kiro|opencode)" "$default_cli")
   export PLAN_AN_GO_CLI
   default_cli="$PLAN_AN_GO_CLI"
 
