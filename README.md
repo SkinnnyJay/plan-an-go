@@ -22,7 +22,6 @@ Automated **implement → validate** pipeline driven by a plan file (e.g. `PLAN.
 | [Supported CLIs and models](#supported-clis-and-models) | Claude, Cline, Codex, Copilot, Cursor, Droid, Gemini, Goose, Kiro, OpenCode + links |
 | [Environment](#environment) | Key variables; full reference in docs |
 | [Examples](#examples) | count, todo, journal, and more |
-| [Project layout](#project-layout) | Repo structure |
 | [Documentation](#documentation) | Full docs index (extendable) |
 | [Cursor skills](#cursor-skills-ai-assisted-planning-and-prd) | generate-plan and generate-prd for PRD/PLAN in chat |
 | [License and contributors](#license-and-contributors) | License, acknowledgments, changelog, contributing, code of conduct, security |
@@ -65,6 +64,8 @@ Use via `npx plan-an-go`, `npx pag`, or `npm run` scripts. Both `plan-an-go` and
 ### From source
 
 Clone the repo, then from repo root:
+
+- **Lint/format (optional):** Install ShellCheck and shfmt (e.g. `brew install shellcheck shfmt` on macOS) so `npm run check` works.
 
 ```bash
 cp .env.sample .env
@@ -331,7 +332,7 @@ Full argument tables, examples, and when to use each command: **[docs/COMMANDS.m
 
 ### Linting and formatting
 
-- Install [ShellCheck](https://github.com/koalaman/shellcheck) and [shfmt](https://github.com/mvdan/sh) (e.g. `brew install shellcheck shfmt` on macOS).
+- **Prerequisites:** Install [ShellCheck](https://github.com/koalaman/shellcheck) and [shfmt](https://github.com/mvdan/sh) (e.g. `brew install shellcheck shfmt` on macOS; on Linux use your package manager, e.g. `apt install shellcheck` and install shfmt from [mvdan/sh](https://github.com/mvdan/sh)).
 - Run: `npm run lint`, `npm run format`, `npm run format:write`, `npm run check`. Same via Make: `make lint`, `make format`, `make format-write`, `make check`.
 - Repo uses `.shellcheckrc` and shfmt `-i 2 -ci`. GitHub CI runs only `npm run check`. Run `npm run ci` or `make ci` (alias `make build`) locally before commit for the full gate including tests (requires local CLIs).
 
@@ -457,21 +458,6 @@ npm run example:count
 ```
 
 Prints the log path at the top, then streams output. See [examples/count/README.md](examples/count/README.md) for details.
-
----
-
-## Project layout
-
-### Directory map
-
-| Path | Description |
-|------|-------------|
-| `scripts/plan-an-go` | **Entry script** (globally runnable via `npm run` or `plan-an-go` after `npm link` / `npm i -g`). Resolves operating root from `--root`, `.env` `PLAN_AN_GO_ROOT`, or the directory containing `scripts/`; then runs subcommands (`run`, `forever`, `validate`, `task-watcher`, `planner`, `prd`, `reset`, `setup`, etc.). Run `./scripts/plan-an-go help` for usage. |
-| `scripts/system/` | Setup: `setup.sh`, `install-clis.sh`, `auth-cli.sh`, `verify.sh` (see `scripts/system/README.md`). Use via npm: `npm run setup`, `npm run install-clis`, `npm run auth-cli`, `npm run verify`. |
-| `scripts/cli/` | CLI entrypoints: `plan-an-go.sh`, `plan-an-go-forever.sh`, `plan-an-go-validate.sh`, task-watcher, Slack; see `scripts/cli/README.md`. |
-| `examples/count/` | Minimal runnable example; `npm run example:count`. |
-| `assets/prompts/` | Optional prompt templates (scripts build prompts inline by default). |
-| `MAKEFILE` | Convenience targets (run, validate, planner, prd, lint, format, check, setup, etc.); run `make -f MAKEFILE` for the full list. |
 
 ---
 
