@@ -29,11 +29,19 @@ Generate a **Plan-an-go loop plan** as markdown that works with `plan-an-go-plan
 
 Use the structure in `assets/prompts/template.md`. Essentials:
 
-1. **Title:** `# PLAN — <Title>`
-2. **Top info:** `## Top info` with **Title**, **Scope**.
-3. **Summary:** Bullet outcomes and definition of done.
-4. **Milestones:** Header `**M<n>:0 - Title**` (only `:0` for milestone headers).
-5. **Tasks:** `[ ] - M<n>:<id>- Description` or `[x] - ...`. Dash after ID required (`M1:1-`). Subtasks: `M1:2.1-`, etc.
+1. **Metadata (required at top):** Include a plan-an-go metadata block as the first content, wrapped in HTML comments so previews do not render it. Use current date/time in ISO 8601 and set `generated_cli` to this assistant (e.g. `cursor-agent`, `claude`, `codex`):
+
+<!-- 
+```plan_meta_data
+{"created_by":"generate-plan","created_at":"<ISO 8601>","last_updated":"<ISO 8601>","generated_cli":"cursor-agent"}
+```
+-->
+
+2. **Title:** `# PLAN — <Title>`
+3. **Top info:** `## Top info` with **Title**, **Scope**.
+4. **Summary:** Bullet outcomes and definition of done.
+5. **Milestones:** Header `**M<n>:0 - Title**` (only `:0` for milestone headers).
+6. **Tasks:** `[ ] - M<n>:<id>- Description` or `[x] - ...`. Dash after ID required (`M1:1-`). Subtasks: `M1:2.1-`, etc.
 
 Example:
 
@@ -48,7 +56,7 @@ Example:
 [ ] - M2:1- Next task
 ```
 
-6. **100% success criteria** (optional): e.g. all tasks marked `[x]`.
+7. **100% success criteria** (optional): e.g. all tasks marked `[x]`.
 
 ## Process
 

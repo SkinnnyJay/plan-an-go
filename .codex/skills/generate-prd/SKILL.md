@@ -30,11 +30,11 @@ Generate a **Product Requirements Document (PRD)** as markdown that is detailed,
 
 Use the structure in `assets/prompts/prd-template.md`. Essentials:
 
-1. **Metadata (required at top):** Include a plan-an-go metadata block as the first content, wrapped in HTML comments so previews do not render it. Use current date/time in ISO 8601 and set `generated_cli` to this assistant (e.g. `cursor-agent`, `claude`, `codex`):
+1. **Metadata (required at top):** Include a plan-an-go metadata block as the first content, wrapped in HTML comments so previews do not render it. Use current date/time in ISO 8601 and set `generated_cli` to this assistant (e.g. `codex`):
 
 <!-- 
 ```plan_meta_data
-{"created_by":"generate-prd","created_at":"<ISO 8601>","last_updated":"<ISO 8601>","generated_cli":"cursor-agent"}
+{"created_by":"generate-prd","created_at":"<ISO 8601>","last_updated":"<ISO 8601>","generated_cli":"codex"}
 ```
 -->
 
