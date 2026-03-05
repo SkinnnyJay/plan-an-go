@@ -36,6 +36,7 @@ Copy `.env.sample` to `.env` and set values. This doc lists every key, default, 
 | **CLI auth** |
 | `PLAN_AN_GO_ANTHROPIC_API_KEY` | Anthropic API key for Claude CLI. | (none) | `sk-ant-...` | To skip interactive auth when using `claude`. |
 | `PLAN_AN_GO_OPENAI_API_KEY` | OpenAI API key for Codex CLI; also used for TTS when `PLAN_AN_GO_TTS_AFTER_TASK=true`. | (none) | `sk-...` | To skip interactive auth when using `codex`, or to enable spoken task summaries. |
+| `PLAN_AN_GO_GEMINI_API_KEY` | Google API key for Gemini CLI. | (none) | (from Google AI Studio) | To skip interactive auth when using `gemini`. Gemini also reads `GEMINI_API_KEY` or `GOOGLE_API_KEY`. |
 | **Voice summary / TTS (optional)** |
 | `PLAN_AN_GO_TTS_AFTER_TASK` | After each completed task: play beep then speak a short LLM-generated summary via OpenAI TTS. | `false` | `true`, `false` | When you want spoken updates; requires `PLAN_AN_GO_OPENAI_API_KEY` and `jq`. |
 | `PLAN_AN_GO_TTS_SUMMARY_PROMPT_FILE` | Path to the prompt template (placeholders: AGENT_ID, TASK_ID, TONE, etc.). Relative to repo root or absolute. | `assets/prompts/voice-summary.md` | `assets/prompts/voice-summary.md` | To customize structure of the announcement; this prompt is embedded in the pipeline. |
@@ -50,12 +51,24 @@ Copy `.env.sample` to `.env` and set values. This doc lists every key, default, 
 | `PLAN_AN_GO_SOUND_FAIL` | Sound file when implementer fails, validator reverts, or credits exhausted. | `Funk.aiff` (system) | `/path/to/fail.aiff` | Override failure sound. |
 | `PLAN_AN_GO_SOUND_PLAN_DONE` | Sound file when all tasks are complete. | `Hero.aiff` (system) | `/path/to/done.aiff` | Override plan-complete sound. |
 | **CLI & models** |
-| `PLAN_AN_GO_CLI` | Which CLI runs implementer/validator. | `claude` | `claude`, `codex`, `cursor-agent` | Set in `.env` for a consistent default; install and log into that CLI first for best results. |
+| `PLAN_AN_GO_CLI` | Which CLI runs implementer/validator. | `claude` | `claude`, `cline`, `copilot`, `codex`, `cursor-agent`, `droid`, `gemini`, `goose`, `kiro`, `opencode` | Set in `.env` for a consistent default; install and log into that CLI first for best results. |
 | `PLAN_AN_GO_CLI_FLAGS` | Extra flags passed to the selected CLI (shared). | (none) | `--max-tokens 4096` | Overrides per-CLI flags when set. |
 | `PLAN_AN_GO_CLAUDE_FLAGS` | Flags for Claude only (used when `PLAN_AN_GO_CLI_FLAGS` is unset). | (none) | `--max-tokens 4096` | Claude-specific overrides. |
+| `PLAN_AN_GO_CLINE_FLAGS` | Flags for Cline only (used when `PLAN_AN_GO_CLI_FLAGS` is unset). | (none) | (none) | Cline-specific overrides. |
 | `PLAN_AN_GO_CODEX_FLAGS` | Flags for Codex only (used when `PLAN_AN_GO_CLI_FLAGS` is unset). | (none) | `--full-auto` | Codex-specific overrides. |
+| `PLAN_AN_GO_COPILOT_FLAGS` | Flags for GitHub Copilot CLI only (used when `PLAN_AN_GO_CLI_FLAGS` is unset). | (none) | (none) | Copilot-specific overrides. |
+| `PLAN_AN_GO_CURSOR_AGENT_FLAGS` | Flags for Cursor agent only (used when `PLAN_AN_GO_CLI_FLAGS` is unset). | (none) | `--trust` | Scripts pass `--trust` by default so cursor-agent runs non-interactively. Override here. |
+| `PLAN_AN_GO_DROID_FLAGS` | Flags for Droid only (used when `PLAN_AN_GO_CLI_FLAGS` is unset). | (none) | (none) | Droid-specific overrides. |
+| `PLAN_AN_GO_DROID_AUTO` | Droid autonomy level for implementer/validator (allow edits). | `high` | `low`, `medium`, `high` | Use `high` so Droid can write files and run commands. |
+| `PLAN_AN_GO_GEMINI_FLAGS` | Flags for Gemini only (used when `PLAN_AN_GO_CLI_FLAGS` is unset). | (none) | (none) | Gemini-specific overrides. |
+| `PLAN_AN_GO_GOOSE_FLAGS` | Flags for Goose only (used when `PLAN_AN_GO_CLI_FLAGS` is unset). | (none) | (none) | Goose-specific overrides. |
+| `PLAN_AN_GO_KIRO_FLAGS` | Flags for Kiro only (used when `PLAN_AN_GO_CLI_FLAGS` is unset). | (none) | (none) | Kiro-specific overrides. |
+| `PLAN_AN_GO_OPENCODE_FLAGS` | Flags for OpenCode only (used when `PLAN_AN_GO_CLI_FLAGS` is unset). | (none) | (none) | OpenCode-specific overrides. |
 | `PLAN_AN_GO_CLAUDE_MODEL` | Claude model ID. | `claude-sonnet-4-20250514` | `claude-sonnet-4-20250514` | To use a different Claude model. |
 | `PLAN_AN_GO_CODEX_MODEL` | Codex model ID. Empty = CLI default. | (none) | (varies by account) | Leave **unset** for ChatGPT/OpenAI accounts (Codex picks a supported model). Set only if your Codex account supports a specific model ID. |
+| `PLAN_AN_GO_GEMINI_MODEL` | Gemini model ID for headless runs. | `gemini-2.5-flash` | `gemini-2.5-flash`, `gemini-2.5-pro` | To use a different Gemini model. |
+| `PLAN_AN_GO_GOOSE_MODEL` | Goose model override (if supported by profile). | (none) | (varies) | Set only if your goose profile supports a model override. |
+| `PLAN_AN_GO_OPENCODE_MODEL` | OpenCode model in provider/model form. | (none) | `anthropic/claude-sonnet-4` | To pin a model when using `opencode`. |
 | `PLAN_AN_GO_TASK_DETAIL` | Planner: task granularity (L=low, M=medium, H=high, XH=extra high). | `M` | `L`, `M`, `H`, `XH` | Override default when generating PLAN.md; use `--task-detail` on the planner for one-off runs. |
 | **Slack (optional)** |
 | `PLAN_AN_GO_SLACK_APP_BOT_OAUTH_TOKEN` | Slack bot OAuth token (recommended for posting). | (none) | `xoxb-...` | Only when `PLAN_AN_GO_USE_SLACK=true`; preferred over access token. |

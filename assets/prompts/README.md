@@ -2,7 +2,9 @@
 
 Optional prompt templates for the implementer, validator, **planner**, **PRD generator**, and **wizard**. The CLI scripts and wizard read templates from this folder (or from the path set by `PLAN_AN_GO_PROMPTS_DIR` in `.env`). See `docs/ENV-README.md` for override variables.
 
-**Single source of truth for plans:** Both the **planner script** (`plan-an-go-planner.sh`) and the **generate-plan skill** (in `.cursor/skills/`, `.claude/skills/`, `.agents/skills/`) use these files so that script-driven and chat-driven plan generation produce the same format. The skill instructs the agent to read `template.md` and `planning.md` when generating a plan in chat; the planner script injects them when run from the CLI.
+**Document metadata:** PLAN.md and PRD.md may include an optional metadata block at the top for traceability. The planner and PRD scripts inject it automatically when generating; skills are instructed to emit it. The block is wrapped in HTML comments (`<!-- ... -->`) so previews do not render it; inside is a fenced block labeled `plan_meta_data` with JSON: `created_by`, `created_at`, `last_updated`, `generated_cli`. If a plan file has no such block, `plan-an-go-plan-check.sh` prints a warning but does not fail (backward compatible).
+
+**Single source of truth for plans:** Both the **planner script** (`plan-an-go-planner.sh`) and the **generate-plan skill** (in `.cursor/skills/`, `.claude/skills/`, `.codex/skills/`) use these files so that script-driven and chat-driven plan generation produce the same format. The skill instructs the agent to read `template.md` and `planning.md` when generating a plan in chat; the planner script injects them when run from the CLI.
 
 **Single source of truth for PRDs:** The **PRD script** (`plan-an-go-prd.sh`) and the **generate-prd skill** (in `.cursor/skills/`) use `prd-template.md` and `prd.md` so that script-driven and chat-driven PRD generation produce the same structured format.
 

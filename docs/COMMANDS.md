@@ -1,6 +1,6 @@
 # Command reference
 
-Full argument tables, examples, and when to use each command. Run everything from **plan-an-go repo root** via npm; pass extra arguments after `--`.
+Full argument tables, examples, and when to use each command. Run everything from **plan-an-go repo root** via npm; pass extra arguments after `--`. The entry point is available as **`plan-an-go`** and **`pag`** (e.g. `plan-an-go run`, `pag setup`); after global install or `npm link`, either name works.
 
 ---
 
@@ -97,8 +97,9 @@ npm run plan-an-go-forever -- [parent_loops] [child_loops] [options]
 | `--tail` | Write iteration output to `./tmp/pipeline-tail.log` (or `--tail=FILE`). |
 | `--verbose` | Full iteration summaries and plan-check output. |
 | `--quiet` | Only header, errors, and final result. |
-| `--concurrency N` | Run N implementer agents in parallel. |
-| `--cli NAME` | `claude`, `codex`, or `cursor-agent`. |
+| `--concurrency N` | Run N implementer agents in parallel (pool mode: when one finishes it takes the next task). |
+| `--wait-for-all` | With `--concurrency N`: wait for all N agents to finish before the next iteration; default is pool (agents take next task as they finish). |
+| `--cli NAME` | `claude`, `codex`, `cursor-agent`, `gemini`, `goose`, or `opencode`. |
 | `--cli-flags "FLAGS"` | Extra flags for the CLI. |
 | `--strict` | Require plan to be `<work>`-compliant; exit 1 if not. |
 | `--clean-after` | After exit, remove workspace contents. **Requires `--force`**; only when workspace is a subdir of repo. |
@@ -127,7 +128,9 @@ npm run plan-an-go-forever -- --out-dir tmp/todo-tmp --stream --tail --no-slack
 
 - Default way to run the full pipeline until the plan is done.
 - Use `--out-dir` to build in a dedicated folder (e.g. `tmp/todo-tmp`, `examples/todo`) so the plan-an-go repo stays clean.
-- Use `--concurrency N` when you want multiple tasks worked on in parallel.
+- Use `--concurrency N` when you want multiple tasks worked on in parallel. Use `--wait-for-all` to run N tasks per iteration and wait for all to finish before the next round.
+
+**Understanding output:** For an annotated example of what you see in the terminal (header, iterations, implementer/validator blocks, and how it looks with 2 agents), see [SIMULATED-4-CYCLE-OUTPUT.md](SIMULATED-4-CYCLE-OUTPUT.md).
 
 ---
 
@@ -148,7 +151,7 @@ npm run plan-an-go -- [options]
 | `--out-dir DIR` | Use DIR as workspace; plan = `DIR/PLAN.md` unless `--plan` set. |
 | `--workspace DIR` | Run from DIR. |
 | `--plan FILE` | Plan file (default: `PLAN.md`). |
-| `--cli NAME` | `claude`, `codex`, or `cursor-agent`. |
+| `--cli NAME` | `claude`, `codex`, `cursor-agent`, `gemini`, `goose`, or `opencode`. |
 | `--cli-flags "FLAGS"` | Extra CLI flags. |
 | `--strict` | Require plan to be `<work>`-compliant. |
 
@@ -221,7 +224,7 @@ npm run plan-an-go-planner -- [options] [input_file]
 | `--out-dir DIR` | Write `DIR/PLAN.md` unless `--out` is set. |
 | `--prompt="..."` | Use this string as input instead of a file. |
 | `--task-detail L,M,H,XH` | Task granularity: **L** (low), **M** (medium, default), **H** (high), **XH** (extra high). |
-| `--cli NAME` | `claude`, `codex`, or `cursor-agent`. |
+| `--cli NAME` | `claude`, `codex`, `cursor-agent`, `gemini`, `goose`, or `opencode`. |
 | `--cli-flags "FLAGS"` | Extra CLI flags. |
 
 Positional: if you don’t use `--prompt` or `--in`, you can pass the input file as a positional argument (e.g. `PRD.md`).

@@ -2,6 +2,14 @@
 
 **Default output file:** `./PLAN.md` (override with `--out` when using the planner script.)
 
+When generating via the planner script or skills, include at the top a metadata block inside HTML comments (scripts add it automatically; skills should emit it) so previews do not render it:
+
+<!-- 
+```plan_meta_data
+{"created_by":"plan-an-go-planner|generate-plan","created_at":"<ISO 8601>","last_updated":"<ISO 8601>","generated_cli":"<claude|codex|cursor-agent|gemini|goose|opencode>"}
+```
+-->
+
 ---
 
 ## Top info (metadata)

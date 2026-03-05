@@ -46,6 +46,14 @@ PLAN FORMAT (match this structure)
 
 # PLAN — <Title>
 
+Optional (scripts inject this when generating): at the very top, a metadata block wrapped in HTML comments so previews do not render it:
+
+<!-- 
+```plan_meta_data
+{"created_by":"plan-an-go-planner|generate-plan","created_at":"<ISO 8601>","last_updated":"<ISO 8601>","generated_cli":"claude|codex|cursor-agent|gemini|goose|opencode"}
+```
+-->
+
 ## Top info (metadata)
 - **Title:** ...
 - **Scope:** ...

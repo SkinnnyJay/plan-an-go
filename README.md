@@ -2,7 +2,7 @@
 
 # plan-an-go
 
-Automated **implement → validate** pipeline driven by a plan file (e.g. `PLAN.md`). An orchestrator runs an Implementation Agent and a Validation Agent in a loop until all tasks are done or you stop it. **BYOC** — Bring Your Own CLI: use **Claude**, **Codex**, **Cursor**, **Gemini**, or any CLI you prefer.
+Automated **implement → validate** pipeline driven by a plan file (e.g. `PLAN.md`). An orchestrator runs an Implementation Agent and a Validation Agent in a loop until all tasks are done or you stop it. **BYOC** — Bring Your Own CLI: use **Claude**, **Cline**, **Codex**, **Copilot**, **Cursor**, **Droid**, **Gemini**, **Goose**, **Kiro**, **OpenCode**, or any CLI you prefer.
 
 ---
 
@@ -19,7 +19,7 @@ Automated **implement → validate** pipeline driven by a plan file (e.g. `PLAN.
 | [Full flow walkthrough](#full-flow-walkthrough) | End-to-end todo app example |
 | [Commands](#commands) | Command summary and links |
 | [Script arguments](#script-arguments-quick-reference) | Quick reference; full details in docs |
-| [Supported CLIs and models](#supported-clis-and-models) | Claude, Codex, Cursor |
+| [Supported CLIs and models](#supported-clis-and-models) | Claude, Cline, Codex, Copilot, Cursor, Droid, Gemini, Goose, Kiro, OpenCode + links |
 | [Environment](#environment) | Key variables; full reference in docs |
 | [Examples](#examples) | count, todo, journal, and more |
 | [Project layout](#project-layout) | Repo structure |
@@ -34,7 +34,7 @@ Automated **implement → validate** pipeline driven by a plan file (e.g. `PLAN.
 | Feature | Description |
 |---------|-------------|
 | **Implement → validate loop** | One agent implements tasks from your plan; another validates. Loop runs until every task is done or you stop it. |
-| **Multiple CLIs** | Use **Claude**, **Codex**, or **Cursor**. Set default in `.env` or pass `--cli` per run. |
+| **Multiple CLIs** | Use **Claude**, **Cline**, **Codex**, **Copilot**, **Cursor**, **Droid**, **Gemini**, **Goose**, **Kiro**, or **OpenCode**. Set default in `.env` or pass `--cli` per run. |
 | **Plan from prompt or PRD** | Generate `PLAN.md` from a short prompt or from a PRD; generate PRDs from prompts. Templates use `<work>...</work>` so only real tasks are parsed. |
 | **Concurrent agents** | Run several implementers in parallel with `--concurrency N`; each agent gets its own task. Optional live **task watcher** (full or minimal list). |
 | **Optional Slack** | Post progress to a Slack channel (or thread); off by default. |
@@ -52,7 +52,7 @@ Choose one option:
 npm install -g plan-an-go
 ```
 
-Then run `plan-an-go` from any directory. Copy `.env.sample` from the package (e.g. `$(npm root -g)/plan-an-go/.env.sample`) to your config location, rename to `.env`, and set `PLAN_AN_GO_ROOT` to your project directory (or pass `--root /path/to/project` when you run commands).
+Then run `plan-an-go` or the short alias `pag` from any directory (e.g. `plan-an-go run`, `pag setup`). Copy `.env.sample` from the package (e.g. `$(npm root -g)/plan-an-go/.env.sample`) to your config location, rename to `.env`, and set `PLAN_AN_GO_ROOT` to your project directory (or pass `--root /path/to/project` when you run commands).
 
 ### From npm (project)
 
@@ -60,7 +60,7 @@ Then run `plan-an-go` from any directory. Copy `.env.sample` from the package (e
 npm install plan-an-go
 ```
 
-Use via `npx plan-an-go` or `npm run` scripts. Put `.env` in the project root and set `PLAN_AN_GO_ROOT` to that path if needed.
+Use via `npx plan-an-go`, `npx pag`, or `npm run` scripts. Both `plan-an-go` and `pag` are CLI aliases for the same entry point. Put `.env` in the project root and set `PLAN_AN_GO_ROOT` to that path if needed.
 
 ### From source
 
@@ -94,7 +94,7 @@ Interactive: install CLIs, authenticate, verify. To install everything: `npm run
 
 | Step | Command | Notes |
 |------|---------|--------|
-| Install CLIs | `npm run install-clis` or `npm run install-clis -- all` | Interactive, or list: `claude`, `codex`, `jq`, `fswatch`, `cursor-agent` |
+| Install CLIs | `npm run install-clis` or `npm run install-clis -- all` | Interactive, or list: `claude`, `cline`, `copilot`, `codex`, `droid`, `gemini`, `goose`, `kiro`, `opencode`, `jq`, `fswatch`, `cursor-agent` |
 | Authenticate | `npm run auth-cli` or `npm run auth-cli -- all` | Web login unless `PLAN_AN_GO_ANTHROPIC_API_KEY` or `PLAN_AN_GO_OPENAI_API_KEY` set in `.env`. Log out: `npm run auth-cli -- --logout` |
 | Verify | `npm run verify` | Fails on missing CLIs/keys. Use `npm run verify -- --force` to warn but exit 0 |
 
@@ -108,7 +108,7 @@ Interactive menu: review or set key variables (from `.env` or defaults), then ch
 
 ### Tip
 
-Set the default CLI in `.env`: `PLAN_AN_GO_CLI=claude` (or `codex`, `cursor-agent`) so you don't need to pass `--cli` each time.
+Set the default CLI in `.env`: `PLAN_AN_GO_CLI=claude` (or `cline`, `copilot`, `codex`, `cursor-agent`, `droid`, `gemini`, `goose`, `kiro`, `opencode`) so you don't need to pass `--cli` each time.
 
 ### Platforms
 
@@ -128,7 +128,7 @@ Clone the repo, then from repo root:
 cp .env.sample .env
 ```
 
-Edit `.env` if you want (e.g. `PLAN_AN_GO_CLI=claude` or `codex` or `cursor-agent`).
+Edit `.env` if you want (e.g. `PLAN_AN_GO_CLI=claude`, `cline`, `copilot`, `codex`, `cursor-agent`, `droid`, `gemini`, `goose`, `kiro`, or `opencode`).
 
 ### Step 2 — Setup CLIs and auth
 
@@ -178,7 +178,7 @@ Add a `PLAN.md` in the repo root with checklist tasks (`[ ]` / `[x]`).
 
 ### 2. Configure env
 
-Copy `.env.sample` to `.env` and set `PLAN_AN_GO_CLI` (e.g. `claude`, `codex`, `cursor-agent`). See [Environment variables](docs/ENV-README.md) for all keys and defaults.
+Copy `.env.sample` to `.env` and set `PLAN_AN_GO_CLI` (e.g. `claude`, `cline`, `copilot`, `codex`, `cursor-agent`, `droid`, `gemini`, `goose`, `kiro`, `opencode`). See [Environment variables](docs/ENV-README.md) for all keys and defaults.
 
 ### 3. Run
 
@@ -361,19 +361,33 @@ All scripts run from **repo root** via npm; pass extra args after `--`. Full det
 
 ### CLI table
 
-| CLI | Description | Model selection |
-|-----|-------------|------------------|
-| **claude** | Anthropic Claude CLI | Set `PLAN_AN_GO_CLAUDE_MODEL` in `.env` (default: `claude-sonnet-4-20250514`). |
-| **codex** | OpenAI Codex CLI | Set `PLAN_AN_GO_CODEX_MODEL` in `.env` (e.g. `codex-20250301`). Empty = CLI default. |
-| **cursor-agent** | Cursor agent CLI | Model is chosen by the agent; no env override. |
+| CLI | Description | Install / docs | Model selection |
+|-----|-------------|----------------|------------------|
+| **claude** | Anthropic Claude CLI | [Claude CLI](https://docs.anthropic.com/claude/docs/claude-cli) | Set `PLAN_AN_GO_CLAUDE_MODEL` in `.env` (default: `claude-sonnet-4-20250514`). |
+| **cline** | Cline CLI (open-source, model-agnostic) | [Cline CLI](https://docs.cline.bot/cline-cli/getting-started) | Model via Cline config; optional `PLAN_AN_GO_CLINE_FLAGS`. |
+| **codex** | OpenAI Codex CLI | [Codex](https://openai.com/codex) | Set `PLAN_AN_GO_CODEX_MODEL` in `.env` (e.g. `codex-20250301`). Empty = CLI default. |
+| **copilot** | GitHub Copilot CLI | [Copilot CLI](https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-in-the-cli) | Model via Copilot; optional `PLAN_AN_GO_COPILOT_FLAGS`. Token: `COPILOT_GITHUB_TOKEN` or `GITHUB_TOKEN`. |
+| **cursor-agent** | Cursor agent CLI | [Cursor CLI](https://cursor.com/docs/cli/overview) / [cursor.com/cli](https://cursor.com/cli) | Model is chosen by the agent; no env override. |
+| **droid** | Factory Droid CLI (headless) | [Factory Droid](https://app.factory.ai/cli) / [docs](https://docs.factory.ai/cli/droid-exec/overview) | `PLAN_AN_GO_DROID_AUTO` (e.g. `high`); optional `PLAN_AN_GO_DROID_FLAGS`. |
+| **gemini** | Google Gemini CLI | [Gemini CLI](https://github.com/google-gemini/gemini-cli) | Set `PLAN_AN_GO_GEMINI_API_KEY` or `GEMINI_API_KEY`; `PLAN_AN_GO_GEMINI_MODEL` (default: `gemini-2.5-flash`). |
+| **goose** | Block Goose CLI | [Goose](https://github.com/block/goose) | Configure providers in `~/.config/goose`; optional `PLAN_AN_GO_GOOSE_FLAGS` / `PLAN_AN_GO_GOOSE_MODEL`. |
+| **kiro** | Kiro CLI | [Kiro CLI](https://cli.kiro.dev/) / [docs](https://kiro.dev/docs/cli) | Optional `PLAN_AN_GO_KIRO_FLAGS`. |
+| **opencode** | OpenCode CLI | [OpenCode](https://github.com/opencode-ai/opencode) | Run `opencode auth login`; optional `PLAN_AN_GO_OPENCODE_MODEL` (provider/model), `PLAN_AN_GO_OPENCODE_FLAGS`. |
 
 ### How to change the model
 
 | CLI | In `.env` | Per run |
 |-----|-----------|---------|
 | **Claude** | `PLAN_AN_GO_CLAUDE_MODEL=claude-sonnet-4-20250514` (or other Anthropic model ID) | `--cli-flags "--model <model-id>"` |
+| **Cline** | Model via Cline config | `PLAN_AN_GO_CLINE_FLAGS` |
 | **Codex** | `PLAN_AN_GO_CODEX_MODEL=codex-20250301` (or leave empty for CLI default) | Same |
+| **Copilot** | Model via Copilot | `PLAN_AN_GO_COPILOT_FLAGS` |
 | **cursor-agent** | No env var; agent uses its configured model | — |
+| **Droid** | `PLAN_AN_GO_DROID_AUTO=high` (autonomy) | `PLAN_AN_GO_DROID_FLAGS` |
+| **Gemini** | `PLAN_AN_GO_GEMINI_MODEL=gemini-2.5-flash` (or `gemini-2.5-pro`) | `PLAN_AN_GO_GEMINI_FLAGS` |
+| **Goose** | `PLAN_AN_GO_GOOSE_MODEL` (if supported by profile) | `PLAN_AN_GO_GOOSE_FLAGS` |
+| **Kiro** | — | `PLAN_AN_GO_KIRO_FLAGS` |
+| **OpenCode** | `PLAN_AN_GO_OPENCODE_MODEL=provider/model` | `PLAN_AN_GO_OPENCODE_FLAGS` |
 
 ---
 
@@ -386,8 +400,8 @@ Full reference (all keys, defaults, examples): **[docs/ENV-README.md](docs/ENV-R
 | Variable | Description |
 |----------|-------------|
 | `PLAN_FILE` | Plan file path (default: `PLAN.md`). |
-| `PLAN_AN_GO_CLI` | CLI: `claude`, `codex`, or `cursor-agent`. |
-| `PLAN_AN_GO_CLI_FLAGS` | Extra flags passed to the CLI (shared). Use `PLAN_AN_GO_CLAUDE_FLAGS` / `PLAN_AN_GO_CODEX_FLAGS` for per-CLI flags when unset. |
+| `PLAN_AN_GO_CLI` | CLI: `claude`, `cline`, `copilot`, `codex`, `cursor-agent`, `droid`, `gemini`, `goose`, `kiro`, or `opencode`. |
+| `PLAN_AN_GO_CLI_FLAGS` | Extra flags passed to the CLI (shared). Use per-CLI vars (e.g. `PLAN_AN_GO_CLAUDE_FLAGS`, `PLAN_AN_GO_CLINE_FLAGS`, `PLAN_AN_GO_DROID_FLAGS`) when unset; see [docs/ENV-README.md](docs/ENV-README.md). |
 | `PLAN_AN_GO_CLAUDE_MODEL` | Claude model ID (see [Supported CLIs and models](#supported-clis-and-models)). |
 | `PLAN_AN_GO_CODEX_MODEL` | Codex model ID (optional). |
 | `PLAN_AN_GO_ANTHROPIC_API_KEY` / `PLAN_AN_GO_OPENAI_API_KEY` | Optional; if set, auth uses the key instead of web login. |
@@ -471,6 +485,7 @@ Extended docs live in **`docs/`**. Use this index to find details and to add new
 |-----|----------|
 | [**docs/README.md**](docs/README.md) | **Documentation index** — table of contents and short descriptions for all docs. Start here to extend or navigate documentation. |
 | [**docs/COMMANDS.md**](docs/COMMANDS.md) | **Command reference** — argument tables, examples, and when to use each command (forever, run, validate, planner, prd, prd-from-plan, task-watcher, reset, plan-check). Covers plan compliance (`<work>`, `--strict`), output/workspace (`--out-dir`), plan override (`--plan`), and generating PLAN from PRD. |
+| [**docs/SIMULATED-4-CYCLE-OUTPUT.md**](docs/SIMULATED-4-CYCLE-OUTPUT.md) | **Understanding pipeline output** — annotated example of a 4-cycle run (header, iterations, implementer/validator blocks). Explains how to read the log and what changes with `--concurrency 2` (pool vs wait-for-all). |
 | [**docs/CURSOR-SKILLS.md**](docs/CURSOR-SKILLS.md) | **Cursor Agent Skills** — `generate-prd` and `generate-plan`: how to use them in Cursor (`@generate-prd`, `@generate-plan`), why they’re valuable, and how they tie to the CLI. |
 | [**docs/ENV-README.md**](docs/ENV-README.md) | **Environment variables** — full table of keys, defaults, and when to set them; output directory and cleanup (`--out-dir`, `--clean-after`, `--force`); [Setting up Slack](docs/ENV-README.md#setting-up-slack-for-pipeline-updates). |
 

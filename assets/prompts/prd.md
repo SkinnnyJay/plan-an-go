@@ -30,6 +30,14 @@ PRD FORMAT (match this structure)
 
 # PRD — <Title>
 
+Optional (scripts inject when generating): at the very top, a metadata block wrapped in HTML comments so previews do not render it:
+
+<!-- 
+```plan_meta_data
+{"created_by":"plan-an-go-prd|plan-an-go-prd-from-plan|generate-prd","created_at":"<ISO 8601>","last_updated":"<ISO 8601>","generated_cli":"claude|codex|cursor-agent|gemini|goose|opencode"}
+```
+-->
+
 ## Overview
 2–4 sentences: what this product or feature is, who it is for, and why it matters.
 

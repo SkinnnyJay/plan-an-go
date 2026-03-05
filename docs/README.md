@@ -21,6 +21,7 @@ Docs in this folder (`docs/`).
 | Doc | Contents |
 |-----|----------|
 | [**COMMANDS.md**](COMMANDS.md) | **Command reference** — Full argument tables, examples, and when to use each command: `plan-an-go-forever`, `plan-an-go`, `plan-an-go-validate`, `plan-an-go-planner`, `plan-an-go-prd`, `plan-an-go-prd-from-plan`, `plan-an-go-task-watcher`, `reset`, `plan-an-go-plan-check`. Covers output/workspace (`--out-dir`), plan override (`--plan`), plan compliance (`<work>`, `--strict`), and generating PLAN from PRD. |
+| [**SIMULATED-4-CYCLE-OUTPUT.md**](SIMULATED-4-CYCLE-OUTPUT.md) | **Understanding pipeline output** — Annotated 4-cycle run (header, one iteration in detail, flow at a glance, full raw output). How to read the log; 2 concurrent agents (pool vs `--wait-for-all`). |
 | [**CURSOR-SKILLS.md**](CURSOR-SKILLS.md) | **Cursor Agent Skills** — Documented skills for PRD and PLAN: `generate-prd` and `generate-plan`. How to invoke them in Cursor (`@generate-prd`, `@generate-plan`), when they’re valuable, and how they relate to the CLI. |
 | [**ENV-README.md**](ENV-README.md) | **Environment variables** — Full table of keys, defaults, when to set. Output dir and cleanup (`--out-dir`, `--clean-after`, `--force`). [Setting up Slack](ENV-README.md#setting-up-slack-for-pipeline-updates). |
 
