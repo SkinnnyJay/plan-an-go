@@ -244,6 +244,8 @@ npm run plan-an-go-planner -- --task-detail XH --out-dir examples/todo --in exam
 - After writing or updating a PRD: generate the plan that the implementer will follow.
 - To create a plan from a short prompt when you don’t have a PRD.
 
+**See also:** [CURSOR-SKILLS.md](CURSOR-SKILLS.md) — use the **generate-plan** skill in Cursor (`@generate-plan`) for conversational clarification before generating a PLAN.
+
 ---
 
 ## plan-an-go-prd (generate PRD)
@@ -280,6 +282,8 @@ npm run plan-an-go-prd -- --in notes.md --out ./PRD.md
 ### When to use
 
 - Start a new product or feature: get a structured PRD, then pass it to the planner to get a PLAN.
+
+**See also:** [CURSOR-SKILLS.md](CURSOR-SKILLS.md) — use the **generate-prd** skill in Cursor (`@generate-prd`) to create a PRD in chat with the right structure.
 
 ---
 

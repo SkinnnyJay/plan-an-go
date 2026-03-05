@@ -24,7 +24,8 @@ Automated **implement → validate** pipeline driven by a plan file (e.g. `PLAN.
 | [Examples](#examples) | count, todo, journal, and more |
 | [Project layout](#project-layout) | Repo structure |
 | [Documentation](#documentation) | Full docs index (extendable) |
-| [License and contributors](#license-and-contributors) | License, acknowledgments, changelog, contributing |
+| [Cursor skills](#cursor-skills-ai-assisted-planning-and-prd) | generate-plan and generate-prd for PRD/PLAN in chat |
+| [License and contributors](#license-and-contributors) | License, acknowledgments, changelog, contributing, code of conduct, security |
 
 ---
 
@@ -470,9 +471,21 @@ Extended docs live in **`docs/`**. Use this index to find details and to add new
 |-----|----------|
 | [**docs/README.md**](docs/README.md) | **Documentation index** — table of contents and short descriptions for all docs. Start here to extend or navigate documentation. |
 | [**docs/COMMANDS.md**](docs/COMMANDS.md) | **Command reference** — argument tables, examples, and when to use each command (forever, run, validate, planner, prd, prd-from-plan, task-watcher, reset, plan-check). Covers plan compliance (`<work>`, `--strict`), output/workspace (`--out-dir`), plan override (`--plan`), and generating PLAN from PRD. |
+| [**docs/CURSOR-SKILLS.md**](docs/CURSOR-SKILLS.md) | **Cursor Agent Skills** — `generate-prd` and `generate-plan`: how to use them in Cursor (`@generate-prd`, `@generate-plan`), why they’re valuable, and how they tie to the CLI. |
 | [**docs/ENV-README.md**](docs/ENV-README.md) | **Environment variables** — full table of keys, defaults, and when to set them; output directory and cleanup (`--out-dir`, `--clean-after`, `--force`); [Setting up Slack](docs/ENV-README.md#setting-up-slack-for-pipeline-updates). |
 
 **See also:** [CLAUDE.md](CLAUDE.md) (commands, plan format, architecture), [.env.sample](.env.sample) (copy to `.env`).
+
+### Cursor skills (AI-assisted planning and PRD)
+
+When using **Cursor**, you can invoke built-in Agent Skills to create PRDs and plans in the right format, with the AI asking clarifying questions first:
+
+| Skill | Use in Cursor | What you get |
+|-------|----------------|--------------|
+| **generate-prd** | `@generate-prd` or `@.cursor/skills/generate-prd` | A structured PRD (goals, requirements, success criteria) you can save as `PRD.md` and pass to the planner. |
+| **generate-plan** | `@generate-plan` or `@.cursor/skills/generate-plan` | A plan-an-go–format PLAN. The agent asks clarifying questions before emitting the plan so scope and priorities are clear. |
+
+Full details, when to use each, and how they relate to the CLI: [docs/CURSOR-SKILLS.md](docs/CURSOR-SKILLS.md).
 
 ---
 
@@ -489,8 +502,10 @@ Extended docs live in **`docs/`**. Use this index to find details and to add new
 | [LICENSE](LICENSE) | MIT — use, modify, and distribute with attribution. |
 | [CHANGELOG.md](CHANGELOG.md) | Version history and what's new. |
 | [CONTRIBUTORS.md](CONTRIBUTORS.md) | Contributors. |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Development setup, how to report issues or open PRs. |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Development setup, how to report issues or open PRs, and publishing steps. |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community standards (Contributor Covenant 2.1). |
+| [SECURITY.md](SECURITY.md) | Supported versions and how to report vulnerabilities. |
 
 ### Publishing (maintainers)
 
-To publish to npm: run tests and checks, bump version in `package.json`, then `npm publish`. Only paths listed in `package.json` `files` (and not excluded by `.npmignore`) are included. Ensure the repo is pushed and the GitHub release (if any) matches the npm version.
+To publish to npm: run `npm run check`, bump version (e.g. `npm version patch`), update [CHANGELOG.md](CHANGELOG.md), then `npm publish`. See [CONTRIBUTING.md](CONTRIBUTING.md#publishing-maintainers) for the full checklist.
