@@ -2,7 +2,25 @@
 
 Full argument tables, examples, and when to use each command. Run everything from **plan-an-go repo root** via npm; pass extra arguments after `--`.
 
-See also: [Environment variables](ENV-README.md), [README](../README.md) (Quick start, examples).
+---
+
+## Table of contents
+
+| Section | Description |
+|---------|-------------|
+| [Output directory and plan path](#output-directory-and-plan-path) | Where code is created; `--out-dir`, `--plan`, PLAN from PRD |
+| [plan-an-go-forever](#plan-an-go-forever-orchestrator) | Orchestrator loop (implementer → validator) |
+| [plan-an-go](#plan-an-go-implementer-one-cycle) | One implementer cycle |
+| [plan-an-go-validate](#plan-an-go-validate-validator) | Validate saved implementer output |
+| [plan-an-go-planner](#plan-an-go-planner-generate-plan) | Generate PLAN from PRD or prompt |
+| [plan-an-go-prd](#plan-an-go-prd-generate-prd) | Generate PRD from prompt or doc |
+| [plan-an-go-prd-from-plan](#plan-an-go-prd-from-plan-prd-from-plan) | PRD from existing PLAN |
+| [plan-an-go-task-watcher / task:watcher](#plan-an-go-task-watcher--taskwatcher-live-task-list) | Live task list (full or minimal) |
+| [reset](#reset-reset-completed-tasks) | Reset `[x]` → `[ ]` in plan |
+| [plan-an-go-plan-check](#plan-an-go-plan-check-plan-health-check) | Plan health check (counts, `<work>` compliance) |
+| [Other commands](#other-commands-summary) | Onboard, wizard, setup, verify |
+
+**See also:** [Environment variables](ENV-README.md) | [README](../README.md) (Quick start, examples)
 
 ---
 
@@ -24,12 +42,14 @@ Directory is created if missing. Use **unique dirs per project** (e.g. `./tmp/to
 
 ### Overriding the plan
 
-You can set the output dir **and** use a different plan file:
+Set the output dir **and** use a different plan file:
 
-- **`--out-dir DIR`** — Where to build (workspace).
-- **`--plan PATH`** — Which plan file to use. If `PATH` is relative, it is resolved relative to the workspace.
+| Flag | Purpose |
+|------|---------|
+| `--out-dir DIR` | Where to build (workspace). |
+| `--plan PATH` | Which plan file to use. If `PATH` is relative, resolved relative to the workspace. |
 
-Examples:
+**Examples:**
 
 ```bash
 # Build in tmp/todo-tmp, use plan from another path (relative to repo root)
@@ -55,7 +75,11 @@ This writes `examples/todo/PLAN.md` and uses `examples/todo/PRD.md` as input.
 
 Runs **implementer → validator** in a loop until all tasks are complete or max iterations.
 
-**Usage:** `npm run plan-an-go-forever -- [parent_loops] [child_loops] [options]`
+### Usage
+
+```bash
+npm run plan-an-go-forever -- [parent_loops] [child_loops] [options]
+```
 
 ### Arguments
 
@@ -111,7 +135,11 @@ npm run plan-an-go-forever -- --out-dir tmp/todo-tmp --stream --tail --no-slack
 
 Runs **one** implementer cycle: pick the first incomplete task, implement it, update the plan.
 
-**Usage:** `npm run plan-an-go -- [options]`
+### Usage
+
+```bash
+npm run plan-an-go -- [options]
+```
 
 ### Arguments
 
@@ -145,7 +173,11 @@ npm run plan-an-go -- --out-dir tmp/todo-tmp
 
 Runs the validator on a **saved implementer output file** (e.g. a log from a previous run).
 
-**Usage:** `npm run plan-an-go-validate -- <implementer_output_file> [options]`
+### Usage
+
+```bash
+npm run plan-an-go-validate -- <implementer_output_file> [options]
+```
 
 ### Arguments
 
@@ -174,7 +206,11 @@ npm run plan-an-go-validate -- ./tmp/implementer-output.log --workspace tmp/todo
 
 Generates a **PLAN.md** from a PRD file or a freeform prompt.
 
-**Usage:** `npm run plan-an-go-planner -- [options] [input_file]`
+### Usage
+
+```bash
+npm run plan-an-go-planner -- [options] [input_file]
+```
 
 ### Arguments
 
@@ -184,7 +220,7 @@ Generates a **PLAN.md** from a PRD file or a freeform prompt.
 | `--out PATH` | Output file (default: `./PLAN.md`). With `--out-dir DIR`, default becomes `DIR/PLAN.md`. |
 | `--out-dir DIR` | Write `DIR/PLAN.md` unless `--out` is set. |
 | `--prompt="..."` | Use this string as input instead of a file. |
-| `--task-detail L\|M\|H\|XH` | Task granularity: **L** (low), **M** (medium, default), **H** (high), **XH** (extra high). |
+| `--task-detail L,M,H,XH` | Task granularity: **L** (low), **M** (medium, default), **H** (high), **XH** (extra high). |
 | `--cli NAME` | `claude`, `codex`, or `cursor-agent`. |
 | `--cli-flags "FLAGS"` | Extra CLI flags. |
 
@@ -214,7 +250,11 @@ npm run plan-an-go-planner -- --task-detail XH --out-dir examples/todo --in exam
 
 Generates a structured **PRD** from a freeform prompt or an input document.
 
-**Usage:** `npm run plan-an-go-prd -- [options]`
+### Usage
+
+```bash
+npm run plan-an-go-prd -- [options]
+```
 
 ### Arguments
 
@@ -247,7 +287,11 @@ npm run plan-an-go-prd -- --in notes.md --out ./PRD.md
 
 Validates, corrects, or **generates a PRD** from an existing PLAN (file or string).
 
-**Usage:** `npm run plan-an-go-prd-from-plan -- [options] [plan_file]`
+### Usage
+
+```bash
+npm run plan-an-go-prd-from-plan -- [options] [plan_file]
+```
 
 ### Arguments
 
@@ -278,12 +322,12 @@ npm run plan-an-go-prd-from-plan -- --out-dir examples/todo --plan examples/todo
 
 Shows a live view of the plan’s tasks. **Full** list or **minimal** (context around incomplete only).
 
-**Usage:**
+### Usage
 
-```bash
-npm run plan-an-go-task-watcher -- [options]   # full list
-npm run task:watcher -- [options]              # minimal (5 before/5 after incomplete)
-```
+| Command | Mode |
+|---------|------|
+| `npm run plan-an-go-task-watcher -- [options]` | Full list |
+| `npm run task:watcher -- [options]` | Minimal (5 before/5 after incomplete) |
 
 ### Arguments
 
@@ -321,7 +365,13 @@ npm run task:watcher -- --plan examples/todo/PLAN.md
 
 Resets completed tasks from `[x]` to `[ ]` in a plan file.
 
-**Usage:** `npm run reset -- [options]` or `npm run plan-an-go-reset -- [options]`
+### Usage
+
+```bash
+npm run reset -- [options]
+# or
+npm run plan-an-go-reset -- [options]
+```
 
 ### Arguments
 
@@ -352,8 +402,14 @@ npm run reset -- --plan PLAN.md --force
 
 Checks that a plan file exists, is non-empty, and (optionally) is `<work>`-compliant. Reports milestone/task counts, completion progress, and formatting issues. Used by the orchestrator and planner; you can run it manually to validate a plan before running the pipeline.
 
-**Usage:** `./scripts/cli/plan-an-go-plan-check.sh [--strict] [plan_file]`  
-From repo root. No npm script; use the script path or `make -f MAKEFILE plan-check FILE=path [STRICT=1]`.
+### Usage
+
+From repo root. No npm script; use the script path or Make:
+
+```bash
+./scripts/cli/plan-an-go-plan-check.sh [--strict] [plan_file]
+make -f MAKEFILE plan-check FILE=path [STRICT=1]
+```
 
 ### Arguments
 
@@ -396,4 +452,4 @@ make -f MAKEFILE plan-check FILE=examples/todo/PLAN.md STRICT=1
 | `npm run auth-cli [-- all]` | Authenticate CLIs. |
 | `npm run verify [-- --force]` | Verify CLIs/keys. |
 
-Full environment variable reference: [ENV-README.md](ENV-README.md).
+**See also:** [ENV-README.md](ENV-README.md) — full environment variable reference.

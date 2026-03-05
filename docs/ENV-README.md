@@ -1,8 +1,23 @@
 # Environment variables
 
-Copy `.env.sample` to `.env` and set values. This table lists every key, default, and when to use it.
+Copy `.env.sample` to `.env` and set values. This doc lists every key, default, and when to use it.
 
-**See also:** [COMMANDS.md](COMMANDS.md) (full command reference and examples), README.md (Quick start), CLAUDE.md (Commands, output directory), `scripts/cli/README.md` (CLI scripts and `--out-dir`/`--workspace`).
+---
+
+## Table of contents
+
+| Section | Description |
+|---------|-------------|
+| [Variable table](#variable-table) | All keys, use, default, example, when to set |
+| [Internal and loading](#internal-and-loading) | Internal vars; loading order |
+| [Setting up Slack](#setting-up-slack-for-pipeline-updates) | Slack app, bot token, channel |
+| [Output directory and cleanup](#output-directory-and-cleanup-cli-flags) | CLI flags: `--out-dir`, `--clean-after`, `--force` |
+
+**See also:** [COMMANDS.md](COMMANDS.md) | [README](../README.md) | [CLAUDE.md](../CLAUDE.md) | [scripts/cli/README.md](../scripts/cli/README.md)
+
+---
+
+## Variable table
 
 | Key | Use | Default | Example | When to set |
 |-----|-----|---------|---------|-------------|
@@ -50,17 +65,30 @@ Copy `.env.sample` to `.env` and set values. This table lists every key, default
 | `PLAN_AN_GO_SLACK_APP_SIGNING_SECRET` | Slack signing secret (events). | (none) | — | Only for Slack event handling. |
 | `PLAN_AN_GO_SLACK_APP_VERIFICATION_TOKEN` | Slack verification token. | (none) | — | Only if required by your app. |
 
-**Internal (set by scripts, do not set in `.env`):** `PLAN_AN_GO_WORKSPACE` (passed as `--workspace` by entry script), `PLAN_AN_GO_AGENT_ID` (set when running with `--concurrency > 1`), `PLAN_AN_GO_SKIP_COMMIT` (set by orchestrator when workspace is under the script repo's `tmp/` so the implementer skips git commit to avoid sandbox/permission errors).
+---
 
-**Loading order:** `scripts/plan-an-go` loads `REPO_ROOT/.env`. Slack script loads `.env` then `.env.local` (so `.env.local` can override secrets).
+## Internal and loading
+
+### Internal (do not set in `.env`)
+
+| Variable | Set by | Purpose |
+|----------|--------|---------|
+| `PLAN_AN_GO_WORKSPACE` | Entry script (as `--workspace`) | Current workspace path. |
+| `PLAN_AN_GO_AGENT_ID` | Orchestrator when `--concurrency > 1` | Agent id (e.g. AGENT_01). |
+| `PLAN_AN_GO_SKIP_COMMIT` | Orchestrator when workspace under repo `tmp/` | Implementer skips git commit to avoid sandbox/permission errors. |
+
+### Loading order
+
+- **`scripts/plan-an-go`** loads `REPO_ROOT/.env`.
+- **Slack script** loads `.env` then `.env.local` (`.env.local` overrides secrets).
 
 ---
 
 ## Setting up Slack for pipeline updates
 
-When `PLAN_AN_GO_USE_SLACK=true` (or you pass `--slack-enable`), the forever pipeline posts task and completion updates to a Slack channel. To send those updates you need a Slack app with a bot token and the right scopes.
+When `PLAN_AN_GO_USE_SLACK=true` (or you pass `--slack-enable`), the forever pipeline posts task and completion updates to a Slack channel. You need a Slack app with a bot token and the right scopes.
 
-**Slack API overview:** [api.slack.com/start](https://api.slack.com/start/overview) — general guide to building with the Slack API.
+**Slack API:** [api.slack.com/start](https://api.slack.com/start/overview)
 
 ### 1. Create a Slack app and bot
 
@@ -107,7 +135,9 @@ If the token is missing or a post fails, the pipeline logs a warning and continu
 
 ## Output directory and cleanup (CLI flags)
 
-These are **command-line flags**, not environment variables. Use them when running `plan-an-go` (or `npm run plan-an-go-*`).
+**Command-line flags**, not environment variables. Use when running `plan-an-go` or `npm run plan-an-go-*`.
+
+### Flag reference
 
 | Flag | Subcommands | Purpose |
 |------|-------------|---------|
@@ -117,4 +147,4 @@ These are **command-line flags**, not environment variables. Use them when runni
 | `--clean-after` | forever only | After the pipeline exits (all tasks complete, max iterations, or Ctrl+C), remove all contents of the workspace directory. **Requires `--force`.** Cleanup runs only when the workspace is a **subdirectory** of the script repo (never repo root). |
 | `--force` | forever (with `--clean-after`), reset | With `--clean-after`: confirm cleanup. With `reset`: skip backup of plan file. |
 
-**Examples:** See README.md (Quick start, Option A) and CLAUDE.md (Commands, Output directory and cleanup).
+**See also:** [README](../README.md) (Quick start, Option A), [CLAUDE.md](../CLAUDE.md) (Commands, Output directory and cleanup).
