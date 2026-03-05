@@ -57,6 +57,9 @@ case "$CLI_BIN" in
       ERRORS=$((ERRORS + 1))
     fi
     ;;
+  cline)
+    echo "OK: cline auth is via cline auth or API keys (see docs.cline.bot)"
+    ;;
   codex)
     if [ -n "${PLAN_AN_GO_OPENAI_API_KEY:-}" ] || [ -n "${OPENAI_API_KEY:-}" ]; then
       echo "OK: OpenAI API key is set (PLAN_AN_GO_OPENAI_API_KEY or OPENAI_API_KEY)"
@@ -69,8 +72,42 @@ case "$CLI_BIN" in
       fi
     fi
     ;;
+  copilot)
+    if [ -n "${COPILOT_GITHUB_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
+      echo "OK: Copilot/GitHub token is set (COPILOT_GITHUB_TOKEN or GITHUB_TOKEN)"
+    elif command -v copilot &>/dev/null; then
+      echo "WARN: Copilot token not set. Set COPILOT_GITHUB_TOKEN in .env or run scripts/system/auth-cli.sh copilot"
+      WARNINGS=$((WARNINGS + 1))
+    else
+      echo "ERROR: copilot CLI not found or token not set"
+      ERRORS=$((ERRORS + 1))
+    fi
+    ;;
   cursor-agent)
     echo "OK: cursor-agent auth is via Cursor IDE"
+    ;;
+  gemini)
+    if [ -n "${PLAN_AN_GO_GEMINI_API_KEY:-}" ] || [ -n "${GEMINI_API_KEY:-}" ] || [ -n "${GOOGLE_API_KEY:-}" ]; then
+      echo "OK: Gemini API key is set (PLAN_AN_GO_GEMINI_API_KEY, GEMINI_API_KEY, or GOOGLE_API_KEY)"
+    elif command -v gemini &>/dev/null; then
+      echo "WARN: Gemini key not set. Set PLAN_AN_GO_GEMINI_API_KEY in .env or run scripts/system/auth-cli.sh gemini"
+      WARNINGS=$((WARNINGS + 1))
+    else
+      echo "ERROR: gemini CLI not found or key not set"
+      ERRORS=$((ERRORS + 1))
+    fi
+    ;;
+  droid)
+    echo "OK: droid auth is via Factory API key (see docs.factory.ai)"
+    ;;
+  goose)
+    echo "OK: goose auth is via ~/.config/goose (configure provider in profiles)"
+    ;;
+  kiro)
+    echo "OK: kiro auth is via kiro auth or Kiro CLI config (see kiro.dev/docs/cli)"
+    ;;
+  opencode)
+    echo "OK: opencode auth is via opencode auth login (~/.local/share/opencode/auth.json)"
     ;;
   *)
     echo "WARN: unknown CLI '$CLI_BIN'; cannot verify auth"
@@ -79,7 +116,7 @@ case "$CLI_BIN" in
 esac
 
 # 4) Optional CLIs (warn only)
-for cmd in codex cursor-agent jq; do
+for cmd in cline codex copilot cursor-agent droid gemini goose kiro opencode jq; do
   if [ "$cmd" = "$CLI_BIN" ]; then continue; fi
   if ! command -v "$cmd" &>/dev/null; then
     echo "WARN: optional '$cmd' not in PATH (install with scripts/system/install-clis.sh if needed)"

@@ -1,7 +1,7 @@
 #!/bin/bash
-# install-clis.sh — Install CLIs required for plan-an-go (claude, codex, cursor-agent, jq, fswatch).
+# install-clis.sh — Install CLIs required for plan-an-go (claude, cline, copilot, codex, cursor-agent, droid, gemini, goose, kiro, opencode, jq, fswatch).
 # Dispatches to install-clis-<platform>.sh (darwin, linux, windows). See scripts/system/platform.sh.
-# Usage: ./install-clis.sh [claude] [codex] [cursor-agent] [jq] [fswatch]   # install only these
+# Usage: ./install-clis.sh [claude] [cline] [copilot] [codex] [cursor-agent] [droid] [gemini] [goose] [kiro] [opencode] [jq] [fswatch]   # install only these
 #        ./install-clis.sh                                                  # interactive: y/n for each
 #        ./install-clis.sh all                                              # install all that can be installed
 
@@ -30,7 +30,7 @@ fi
 . "$INSTALL_SCRIPT"
 
 # CLIs that we can install automatically
-INSTALLABLE_CLIS="claude codex jq fswatch"
+INSTALLABLE_CLIS="claude cline copilot codex droid gemini goose kiro opencode jq fswatch"
 # cursor-agent is typically provided by Cursor IDE; we only check for it
 CHECK_ONLY_CLIS="cursor-agent"
 
@@ -38,7 +38,14 @@ run_install() {
   local name="$1"
   case "$name" in
     claude)         install_claude ;;
+    cline)          install_cline ;;
     codex)          install_codex ;;
+    copilot)        install_copilot ;;
+    droid)          install_droid ;;
+    gemini)         install_gemini ;;
+    goose)          install_goose ;;
+    kiro)           install_kiro ;;
+    opencode)       install_opencode ;;
     jq)             install_jq ;;
     fswatch)        install_fswatch ;;
     cursor-agent)   check_cursor_agent ;;
@@ -75,12 +82,12 @@ fi
 
 # Default to all installable + cursor-agent check if "all"
 if [ "$WANT_ALL" = "true" ]; then
-  WANT_CLIS=(claude codex jq fswatch cursor-agent)
+  WANT_CLIS=(claude cline copilot codex droid gemini goose kiro opencode jq fswatch cursor-agent)
 fi
 
 # If still empty, show usage and exit
 if [ ${#WANT_CLIS[@]} -eq 0 ]; then
-  echo "Usage: $0 [all | claude codex jq fswatch cursor-agent]"
+  echo "Usage: $0 [all | claude cline copilot codex droid gemini goose kiro opencode jq fswatch cursor-agent]"
   echo "  No CLIs selected. Run with 'all' or list names, or run without args for interactive."
   exit 0
 fi
