@@ -295,7 +295,8 @@ elif [ "$CLI_BIN" = "codex" ]; then
 elif [ "$CLI_BIN" = "copilot" ]; then
   CLI_ARGS=()
 elif [ "$CLI_BIN" = "cursor-agent" ]; then
-  CLI_ARGS=(--trust)
+  # Prompt is passed as positional argument (escaped later); --print for non-interactive.
+  CLI_ARGS=(--trust --print)
 elif [ "$CLI_BIN" = "droid" ]; then
   CLI_ARGS=(exec --auto "$DROID_AUTO")
 elif [ "$CLI_BIN" = "gemini" ]; then
@@ -313,10 +314,24 @@ if [ -n "$CLI_FLAGS" ]; then
   CLI_ARGS+=("${EXTRA_CLI_ARGS[@]}")
 fi
 
-# Pass prompt via stdin for all CLIs except opencode (run takes prompt as argument; ARG_MAX may limit very large prompts).
+# Show clean header (version + implementer + timestamp)
+PLAN_AN_GO_VERSION="1.0.0"
+PKG_JSON="$(cd "$SCRIPT_DIR/../.." && pwd)/package.json"
+if [ -f "$PKG_JSON" ] && command -v node &>/dev/null; then
+  _v=$(node -p "require('$PKG_JSON').version" 2>/dev/null) && [ -n "$_v" ] && PLAN_AN_GO_VERSION="$_v"
+fi
+echo "plan-an-go $PLAN_AN_GO_VERSION · implementer · $(date '+%Y-%m-%d %H:%M:%S')" >&2
+
+# Pass prompt via stdin for codex/droid/others. cursor-agent (and kiro, opencode) require the prompt as a positional argument; escape " and \ so embedding in the command is safe.
 # Use set +e so we always capture exit code and show CLI output/errors before exiting.
 exit_code=0
 set +e
+PROMPT_FOR_ARG=""
+if [ "$CLI_BIN" = "cursor-agent" ] || [ "$CLI_BIN" = "kiro" ] || [ "$CLI_BIN" = "opencode" ]; then
+  PROMPT_FOR_ARG=$(cat "$temp_prompt")
+  PROMPT_FOR_ARG="${PROMPT_FOR_ARG//\\/\\\\}"
+  PROMPT_FOR_ARG="${PROMPT_FOR_ARG//\"/\\\"}"
+fi
 if [ "$STREAM_OUTPUT" = "true" ]; then
   echo "[implementer] Running $CLI_BIN (streaming)..." >&2
   printf "%b" "${STREAM_BG}" >/dev/tty 2>/dev/null || true
@@ -325,9 +340,11 @@ if [ "$STREAM_OUTPUT" = "true" ]; then
   elif [ "$CLI_BIN" = "droid" ]; then
     droid "${CLI_ARGS[@]}" -f "$temp_prompt" 2>&1 | tee "$temp_file"
   elif [ "$CLI_BIN" = "kiro" ]; then
-    kiro "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" 2>&1 | tee "$temp_file"
+    kiro "${CLI_ARGS[@]}" "$PROMPT_FOR_ARG" 2>&1 | tee "$temp_file"
   elif [ "$CLI_BIN" = "opencode" ]; then
-    opencode "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" 2>&1 | tee "$temp_file"
+    opencode "${CLI_ARGS[@]}" "$PROMPT_FOR_ARG" 2>&1 | tee "$temp_file"
+  elif [ "$CLI_BIN" = "cursor-agent" ]; then
+    "$CLI_BIN" "${CLI_ARGS[@]}" "$PROMPT_FOR_ARG" 2>&1 | tee "$temp_file"
   else
     "$CLI_BIN" "${CLI_ARGS[@]}" - < "$temp_prompt" 2>&1 | tee "$temp_file"
   fi
@@ -340,9 +357,11 @@ else
   elif [ "$CLI_BIN" = "droid" ]; then
     droid "${CLI_ARGS[@]}" -f "$temp_prompt" > "$temp_file" 2> "$temp_err"
   elif [ "$CLI_BIN" = "kiro" ]; then
-    kiro "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" > "$temp_file" 2> "$temp_err"
+    kiro "${CLI_ARGS[@]}" "$PROMPT_FOR_ARG" > "$temp_file" 2> "$temp_err"
   elif [ "$CLI_BIN" = "opencode" ]; then
-    opencode "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" > "$temp_file" 2> "$temp_err"
+    opencode "${CLI_ARGS[@]}" "$PROMPT_FOR_ARG" > "$temp_file" 2> "$temp_err"
+  elif [ "$CLI_BIN" = "cursor-agent" ]; then
+    "$CLI_BIN" "${CLI_ARGS[@]}" "$PROMPT_FOR_ARG" > "$temp_file" 2> "$temp_err"
   else
     "$CLI_BIN" "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_file" 2> "$temp_err"
   fi
