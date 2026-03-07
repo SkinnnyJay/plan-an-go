@@ -31,6 +31,9 @@ Copy `.env.sample` to `.env` and set values. This doc lists every key, default, 
 | `PLAN_AN_GO_VERBOSE` | Forever: full iteration summaries and plan-check output. | `false` | `true`, `false` | Or use `--verbose`; overrides default one-line progress. |
 | `PLAN_AN_GO_QUIET` | Forever: only header, errors, and final completion/stop; no per-iteration progress. | `false` | `true`, `false` | Or use `--quiet`; useful for background runs. |
 | `PLAN_AN_GO_STRICT` | Require plan to be `<work>`-compliant (milestones and tasks inside `<work>...</work>`). Non-compliant plans exit 1. | `false` | `true`, `false` | Or use `--strict` on forever, run, or plan-check; see README. |
+| `PLAN_AN_GO_OUTPUT_TYPE` | Forever: output format. | `stdout` | `stdout`, `json` | Set `json` or use `--output-type=json` to emit only JSON event objects to stdout; see [OUTPUT-FORMAT.md](OUTPUT-FORMAT.md). |
+| `PLAN_AN_GO_USE_COLOR` | Enable agent and status colors in forever and task-watcher. | `true` | `true`, `false` | Set `false` or use `--no-color` to disable. |
+| `PLAN_AN_GO_HIGHLIGHT_AGENTS` | Color the full task row/block with each agent’s color (forever and task-watcher). | `false` | `true`, `false` | Or use `--highlight-agents`; agent colors come from `agents/config.json` or a palette. |
 | `PLAN_AN_GO_PROMPTS_DIR` | Base directory for planner, PRD, prd-from-plan, and wizard prompt templates. Relative to repo root or absolute. | `assets/prompts` (under script repo root) | `assets/prompts`, `/path/to/prompts` | To use a different template directory; see `assets/prompts/README.md`. |
 | `PLAN_AN_GO_PRD_REVISION_PROMPT_FILE` | Wizard step 3: prompt template for applying revision notes to a PRD. Placeholder `{{REVISION_NOTES}}`. Relative to repo root or absolute. | `assets/prompts/prd-revision.md` | `assets/prompts/prd-revision.md` | To customize the revision prompt used by `wizard-step-3-update-prd.sh`. |
 | **CLI auth** |

@@ -1,0 +1,101 @@
+PLAN-TO-GO - Version 1.0.0 (minimal mode)
+PRD Task Watcher                                       2026-03-04 23:05:59
++----------+-----+-------------------------------------------------------+
+Config:
+    - Plan: ./tmp/todo-tmp/PLAN.md
+    - Last refresh: 2026-03-04 23:05:59
+    - CLI: codex
+    - CLI model: gpt-4o-mini
+Agents:
+  - AGENT_01
+    - CLI: codex
+    - CLI model: gpt-4o-mini
+    - CLI flags: --yolo
+  - AGENT_02
+    - CLI: codex
+    - CLI model: gpt-4o-mini
+    - CLI flags: --yolo
+Swarm:
+ - SWARM_01
+    - AGENT_01
+        - CLI: codex
+        - CLI model: gpt-4o-mini
+        - CLI flags: --yolo
+    - AGENT_02
+        - CLI: codex
+        - CLI model: gpt-4o-mini
+        - CLI flags: --yolo
+Tasks Summary:
+    - Milestones: 1
+    - Tasks: 16
+    - Subtasks: 0
+    - Complete: 14
+    - Incomplete: 2
+    - Progress: 87.5%
++----------+---+---------------------------------------------------------+
+Status: File Loaded -> Validated -> Ready to work
++----------+---+---------------------------------------------------------+
+ID         |   | Task summary
++----------+---+---------------------------------------------------------+
+M0:1       | ✓ | M0:1 - Define ASP port interfaces for CLI clients and ...
+M0:2       | ✓ | M0:2 - Define Zod schemas for pipeline message/event t...
+M0:3       | ✓ | M0:3 - Add DI factory for pipeline (CLI → client) with...
+M0:4       | ✓ | M0:4 - Wire pipeline in app bootstrap; add unit tests ...
+M0:5       | ✓ | M0:5 - Define common harness interface (connect, disco...
+M0:6       | ✓ | M0:6 - Add harness registry/factory module
+M0:7       | ✓ | M0:7 - Migrate existing harnesses to implement common ...
+M0:8       | ✓ | M0:8 - Register each harness (Claude, Cursor, etc.) vi...
+M0:9       | ✓ | M0:9 - Define shared event model Zod schemas (text, to...
+M0:10      | ✓ | M0:10 - Add adapter: text output → normalized events
+M0:11      | o | M0:11 - Add adapter: json output → normalized events
+M0:12      | o | M0:12 - Add adapter: stream-json/NDJSON → normalized e...
+M0:13      | ✓ | M0:13 - Emit normalized events from single pipeline pa...
+M0:14      | ✓ | M0:14 - Define capability contract types and Zod schem...
+M0:15      | ✓ | M0:15 - Map each CLI flags (--sandbox, --trust, etc.) ...
+M0:16      | ✓ | M0:16 - Expose capabilities via harness/CLI adapter AP...
++----------+-----+---------------------------------------------------------+
+Last refresh: 2026-03-04 23:05:59
++----------+-----+---------------------------------------------------------+
+Workers:
+[IN_PROGRESS]:[AGENT_02] · CPU 7.5% · 138 MB 
+- M0:11 - Add adapter: json output → normalized events @ 2026-03-04 23:06:00
+[IN_PROGRESS]:[AGENT_01] · CPU 7.5% · 138 MB 
+ - M0:10 - Add adapter: text output → normalized events @ 2026-03-04 23:06:00
++----------+-----+---------------------------------------------------------+
+Work: [============================================================] - 157/157 100% · 25s ·  CPU 7.5% · 138 MB 
+Pool: [============================================================] - 2/2 agents 100% · 25s · CPU 14.2% · 280 MB
++----------+-----+--------------------------------------------------------
+[COMPLETE]:[AGENT_01] · CPU 7.5% · 138 MB 
+    - Task:M0:10 ✓ Add adapter: text output → normalized events 
+    - Implementer: ✓ Implementer passed · Elapsed: 18s
+    - Validator: ✓ Validator passed · Elapsed: 18s · CPU 6.2% · 98 MB
+    - Justification: Content correct; repeatable.   
+    - Confidence Score: 10/10
+    - Updated at: 2026-03-04 23:06:00
+    - Status: CONTINUE
++----------+-----+---------------------------------------------------------+
+[COMPLETE]:[AGENT_02] · CPU 7.5% · 138 MB 
+    - Task:M0:11 ✓ Add adapter: json output → normalized events 
+    - Implementer: ✓ Implementer passed · Elapsed: 18s
+    - Validator: ✓ Validator passed · Elapsed: 18s · CPU 6.2% · 98 MB
+    - Justification: Content correct; repeatable.   
+    - Confidence Score: 10/10
+    - Updated at: 2026-03-04 23:06:00
+    - Status: CONTINUE
++----------+-----+---------------------------------------------------------+
+Iteration 3 · 28s · Plan: 1 complete · Verdict: PASSED · ETA: 28s
++----------+-----+---------------------------------------------------------+
+⚠️  LLM CLAIMED ALL_TASKS_COMPLETE BUT PLAN SHOWS: 1 incomplete
+⚠️  Overriding status to CONTINUE - false positive detected
++----------+-----+---------------------------------------------------------+
+Last refresh: 2026-03-04 23:05:59
+Tasks Summary:
+    - Milestones: 1
+    - Tasks: 16
+    - Subtasks: 0
+    - Complete: 16
+    - Incomplete: 0
+    - Progress: 100%
++----------+-----+---------------------------------------------------------+
+Status: ALL_TASKS_COMPLETE
++----------+-----+---------------------------------------------------------+

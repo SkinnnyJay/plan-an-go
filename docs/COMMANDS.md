@@ -104,6 +104,9 @@ npm run plan-an-go-forever -- [parent_loops] [child_loops] [options]
 | `--strict` | Require plan to be `<work>`-compliant; exit 1 if not. |
 | `--clean-after` | After exit, remove workspace contents. **Requires `--force`**; only when workspace is a subdir of repo. |
 | `--force` | Required with `--clean-after`. |
+| `--output-type TYPE` | `stdout` (default) or `json`. When `json`, only JSON event objects are printed to stdout. See [Output format](OUTPUT-FORMAT.md). |
+| `--no-color` | Disable agent and status colors. |
+| `--highlight-agents` | Use each agent’s color for the full task row/block. |
 
 ### Examples
 
@@ -130,7 +133,7 @@ npm run plan-an-go-forever -- --out-dir tmp/todo-tmp --stream --tail --no-slack
 - Use `--out-dir` to build in a dedicated folder (e.g. `tmp/todo-tmp`, `examples/todo`) so the plan-an-go repo stays clean.
 - Use `--concurrency N` when you want multiple tasks worked on in parallel. Use `--wait-for-all` to run N tasks per iteration and wait for all to finish before the next round.
 
-**Understanding output:** For an annotated example of what you see in the terminal (header, iterations, implementer/validator blocks, and how it looks with 2 agents), see [SIMULATED-4-CYCLE-OUTPUT.md](SIMULATED-4-CYCLE-OUTPUT.md).
+**Understanding output:** For an annotated example of what you see in the terminal (header, iterations, implementer/validator blocks, and how it looks with 2 agents), see [SIMULATED-4-CYCLE-OUTPUT.md](SIMULATED-4-CYCLE-OUTPUT.md). For JSON output and stdout layout details, see [Output format](OUTPUT-FORMAT.md).
 
 ---
 
