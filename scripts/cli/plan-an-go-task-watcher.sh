@@ -41,6 +41,7 @@
 #   --no-progress    Hide progress bar
 #   --no-header      Omit title and separator lines at the top
 #   --no-color       Disable color
+#   --highlight-agents  Use agent color for full task row (default: symbol and agent name only)
 #   --poll N         fswatch poll interval in seconds (default: 1)
 
 set -e
@@ -72,6 +73,7 @@ MINIMAL=false
 MINIMAL_BEFORE=3
 MINIMAL_AFTER=3
 NO_HEADER=false
+HIGHLIGHT_AGENTS=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -123,6 +125,10 @@ while [[ $# -gt 0 ]]; do
       USE_COLOR=false
       shift
       ;;
+    --highlight-agents)
+      HIGHLIGHT_AGENTS=true
+      shift
+      ;;
     --poll)
       POLL_SECS="$2"
       shift 2
@@ -157,6 +163,18 @@ TMP_DIR="${PLAN_AN_GO_TMP:-./tmp}"
 mkdir -p "$TMP_DIR"
 
 PLAN_ABS=$(cd "$(dirname "$PLAN_PATH")" && pwd)/$(basename "$PLAN_PATH")
+
+# Per-agent colors from agents/config.json or palette (for multi-agent plan)
+AGENT_COLORS_SCRIPT="$SCRIPT_DIR/scripts/agent-colors.sh"
+RESET=$'\033[0m'
+if [[ -f "$AGENT_COLORS_SCRIPT" ]] && [[ "$USE_COLOR" == "true" ]]; then
+  # shellcheck source=scripts/agent-colors.sh
+  . "$AGENT_COLORS_SCRIPT"
+  max_agent=$(grep -oE 'AGENT_[0-9]+' "$PLAN_ABS" 2>/dev/null | sed 's/AGENT_//' | sort -n | tail -1)
+  max_agent=${max_agent:-1}
+  REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+  build_agent_color_map "$max_agent" "$REPO_ROOT" 2>/dev/null || true
+fi
 STATE_DIR=$(mktemp -d "$TMP_DIR/task-watcher.XXXXXX")
 PREV_COMPLETED="${STATE_DIR}/prev_completed.log"
 CURRENT_TASKS="${STATE_DIR}/current_tasks.log"
@@ -408,12 +426,24 @@ redraw() {
     else
       style="${DIM}"
     fi
-    if [[ "$IDS_ONLY" == "true" ]] && [[ "$MINIMAL" != "true" ]]; then
-      printf "%-10s | ${style}%-3s${RESET}\n" "$id" "$check"
+    ac=""
+    [[ -n "$agent_display" ]] && [[ -f "$AGENT_COLORS_SCRIPT" ]] && ac=$(get_agent_color "$agent_display")
+    symbol_style="${style}"
+    [[ -n "$ac" ]] && symbol_style="${ac}"
+    if [[ "$HIGHLIGHT_AGENTS" == "true" ]] && [[ -n "$ac" ]]; then
+      if [[ "$IDS_ONLY" == "true" ]] && [[ "$MINIMAL" != "true" ]]; then
+        printf "${ac}%-10s | %-3s${RESET}\n" "$id" "$check"
+      elif [[ "$show_agent_col" == "true" ]]; then
+        printf "${ac}%-10s | %-3s | %-${AGENT_COL}s | %-${desc_col_this}s${RESET}\n" "$id" "$check" "$agent_display" "$desc"
+      else
+        printf "${ac}%-10s | %-3s | %-${desc_col_this}s${RESET}\n" "$id" "$check" "$desc"
+      fi
+    elif [[ "$IDS_ONLY" == "true" ]] && [[ "$MINIMAL" != "true" ]]; then
+      printf "%-10s | ${symbol_style}%-3s${RESET}\n" "$id" "$check"
     elif [[ "$show_agent_col" == "true" ]]; then
-      printf "%-10s | ${style}%-3s${RESET} | %-${AGENT_COL}s | %-${desc_col_this}s\n" "$id" "$check" "$agent_display" "$desc"
+      printf "%-10s | ${symbol_style}%-3s${RESET} | ${ac}%-${AGENT_COL}s${RESET} | %-${desc_col_this}s\n" "$id" "$check" "$agent_display" "$desc"
     else
-      printf "%-10s | ${style}%-3s${RESET} | %-${desc_col_this}s\n" "$id" "$check" "$desc"
+      printf "%-10s | ${symbol_style}%-3s${RESET} | %-${desc_col_this}s\n" "$id" "$check" "$desc"
     fi
     row=$(( row + 1 ))
   done < "$task_file"

@@ -87,6 +87,9 @@ CLEAN_AFTER=false
 FORCE=false
 VERBOSE="${PLAN_AN_GO_VERBOSE:-false}"
 QUIET="${PLAN_AN_GO_QUIET:-false}"
+OUTPUT_TYPE="${PLAN_AN_GO_OUTPUT_TYPE:-stdout}"
+USE_COLOR="${PLAN_AN_GO_USE_COLOR:-true}"
+HIGHLIGHT_AGENTS="${PLAN_AN_GO_HIGHLIGHT_AGENTS:-false}"
 STRICT_WORK="${PLAN_AN_GO_STRICT:-false}"
 # When false (default): finished agents immediately take the next task (pool). When true: wait for all N to finish before next round.
 WAIT_FOR_ALL="${PLAN_AN_GO_WAIT_FOR_ALL:-false}"
@@ -99,6 +102,17 @@ for arg in "$@"; do
       ;;
     --quiet)
       QUIET=true
+      ;;
+    --no-color)
+      USE_COLOR=false
+      ;;
+    --highlight-agents)
+      HIGHLIGHT_AGENTS=true
+      ;;
+    --output-type=*)
+      OUTPUT_TYPE="${arg#*=}"
+      ;;
+    --output-type)
       ;;
     --concurrency=*)
       CONCURRENCY="${arg#*=}"
@@ -178,6 +192,8 @@ for arg in "$@"; do
         CLI_FLAGS="$arg"
       elif [ "${PREV_ARG}" = "--concurrency" ]; then
         CONCURRENCY="$arg"
+      elif [ "${PREV_ARG}" = "--output-type" ]; then
+        OUTPUT_TYPE="$arg"
       else
         # Only collect as positional if it looks like a number (avoid --typo as loop count)
         case "$arg" in
@@ -228,6 +244,17 @@ fi
 CONCURRENCY=$(printf '%d' "$CONCURRENCY" 2>/dev/null || echo 1)
 [ "$CONCURRENCY" -lt 1 ] && CONCURRENCY=1
 
+# Normalize output type
+case "$OUTPUT_TYPE" in
+  json) ;;
+  stdout) ;;
+  *) OUTPUT_TYPE="stdout" ;;
+esac
+
+# Agent colors: build map from config or palette (after REPO_ROOT is set, see below)
+RESET=$'\033[0m'
+AGENT_COLORS_SCRIPT="$SCRIPT_DIR/scripts/agent-colors.sh"
+
 # Export for child scripts (STREAM_OUTPUT, USE_SLACK re-exported after .env load below)
 export PLAN_AN_GO_CLI="$CLI_BIN"
 export PLAN_AN_GO_CLI_FLAGS="$CLI_FLAGS"
@@ -270,6 +297,12 @@ OPENAI_API_KEY="${PLAN_AN_GO_OPENAI_API_KEY:-$OPENAI_API_KEY}"
 GEMINI_API_KEY="${PLAN_AN_GO_GEMINI_API_KEY:-${GEMINI_API_KEY:-$GOOGLE_API_KEY}}"
 export ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY
 export STREAM_OUTPUT USE_SLACK
+
+# Build per-agent color map (from agents/config.json or palette) for Workers/completion output
+if [ -f "$AGENT_COLORS_SCRIPT" ]; then
+  . "$AGENT_COLORS_SCRIPT"
+  build_agent_color_map "$CONCURRENCY" "$REPO_ROOT" 2>/dev/null || true
+fi
 
 # All pipeline logs and temp files under ./tmp by default.
 # When PLAN_AN_GO_TMP is set (e.g. in .env), use a workspace-unique subdir so progress/history/tail
@@ -560,6 +593,50 @@ format_in_progress_line() {
   fi
 }
 
+# Escape string for JSON value (backslash and double-quote).
+json_escape() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+# Emit one JSON object to stdout (when OUTPUT_TYPE=json). Event types: pipeline_start, iteration_end, pipeline_end.
+emit_json() {
+  [ "$OUTPUT_TYPE" != "json" ] && return
+  local event="$1"
+  shift
+  local plan_esc cli_esc started_esc
+  case "$event" in
+    pipeline_start)
+      plan_esc=$(json_escape "${DISPLAY_PLAN:-$PLAN_FILE}")
+      cli_esc=$(json_escape "$CLI_BIN")
+      started_esc=$(date '+%Y-%m-%dT%H:%M:%S' 2>/dev/null || echo "unknown")
+      printf '{"event":"pipeline_start","plan":"%s","cli":"%s","concurrency":%s,"max_iterations":%s,"started_at":"%s","validation":%s}\n' \
+        "$plan_esc" "$cli_esc" "$CONCURRENCY" "$MAX_ITERATIONS" "$started_esc" "$([ "$SKIP_VALIDATION" = "true" ] && echo "false" || echo "true")"
+      ;;
+    iteration_end)
+      plan_esc=$(json_escape "${current_plan_status:-}")
+      printf '{"event":"iteration_end","iteration":%s,"duration_sec":%s,"plan_status":"%s","verdict":"%s","confidence":"%s","eta_sec":%s}\n' \
+        "$iteration" "$iter_duration" "$plan_esc" "$verdict" "$confidence" "$eta"
+      ;;
+    pipeline_end)
+      plan_esc=$(json_escape "${current_plan_status:-}")
+      printf '{"event":"pipeline_end","reason":"%s","iterations":%s,"total_sec":%s,"plan_status":"%s"}\n' \
+        "$1" "$iteration" "$2" "$plan_esc"
+      ;;
+    *) ;;
+  esac
+}
+
+# Get task description for agent from plan (line with [IN_PROGRESS]:[agent_id]). Uses work_awk_cond from caller.
+get_agent_task_line() {
+  local plan_file="$1"
+  local agent_id="$2"
+  local work_awk="$3"
+  local line
+  line=$(grep -n "\[IN_PROGRESS\]:\[${agent_id}\]" "$plan_file" 2>/dev/null | awk "$work_awk" | head -1 | sed 's/^[0-9]*://')
+  [ -z "$line" ] && echo "" && return
+  format_task_line_for_display "$line"
+}
+
 # Output one "start end" per line for each <work>...</work> block (plan may have multiple blocks).
 # If no <work> or script missing, outputs "1 <last_line>" for backward compatibility.
 get_work_section_bounds() {
@@ -812,67 +889,40 @@ get_pid_cpu_mem() {
   ps -o '%cpu=' -o 'rss=' -p "$list" 2>/dev/null | awk '{ cpu += $1 + 0; rss += $2 + 0 } END { printf "%.1f %d", cpu + 0, rss + 0 }'
 }
 
-# Spinner while multiple PIDs are running (e.g. N implementers). Usage: spinner_bounce_multi "Message" pid1 pid2 ...
-# Shows aggregate CPU % and memory (RSS) across all PIDs.
-spinner_bounce_multi() {
+# Wait for multiple PIDs; print one line when done with elapsed time. Usage: wait_pids_multi "Message" pid1 pid2 ...
+wait_pids_multi() {
   local msg="$1"
   shift
   local pids=("$@")
-  local frames=("[=    ]" "[ =   ]" "[  =  ]" "[   = ]" "[    =]" "[   = ]" "[  =  ]" "[ =   ]")
-  local i=0 start elapsed any p agg c r cpu_sum rss_sum rss_mb
+  local start elapsed
   start=$(date +%s)
   while true; do
-    any=false
     for p in "${pids[@]}"; do
-      kill -0 "$p" 2>/dev/null && any=true && break
+      kill -0 "$p" 2>/dev/null && { sleep 0.5; continue 2; }
     done
-    [ "$any" = false ] && break
-    elapsed=$(($(date +%s) - start))
-    agg=""
-    for p in "${pids[@]}"; do
-      kill -0 "$p" 2>/dev/null && agg="$agg $(get_pid_cpu_mem "$p")"
-    done
-    cpu_sum="0"
-    rss_sum=0
-    if [ -n "$agg" ]; then
-      read -r c r <<< $(echo "$agg" | awk '{ c=0; r=0; for(i=1;i<=NF;i+=2) c+=$i; for(i=2;i<=NF;i+=2) r+=$i; printf "%.1f %d", c, r }' 2>/dev/null) || true
-      [ -n "$c" ] && cpu_sum="$c"
-      [ -n "$r" ] && rss_sum=$r
-    fi
-    rss_mb=$((rss_sum / 1024))
-    printf "\r  %s %s · Elapsed: %ds · CPU %s%% · %d MB    " "${frames[i % 8]}" "$msg" "$elapsed" "$cpu_sum" "$rss_mb" >&2
-    i=$((i + 1))
-    sleep 0.15
+    break
   done
   elapsed=$(($(date +%s) - start))
-  printf "\r  ✓ %s · Elapsed: %ds                \n" "$msg" "$elapsed" >&2
+  printf "  ✓ %s · Elapsed: %ds\n" "$msg" "$elapsed" >&2
 }
 
-# Bouncing box spinner with live CPU % and memory (PID + children), per task.
-# Output: [  =  ] Implementer working (23s) · CPU 12.5% · 145 MB  (single line, in-place update)
-spinner_bounce() {
+# Wait for PID; print one line when done with CPU/Mem. No animation.
+wait_pid_with_stats() {
   local pid=$1
   local msg=$2
-  local frames=("[=    ]" "[ =   ]" "[  =  ]" "[   = ]" "[    =]" "[   = ]" "[  =  ]" "[ =   ]")
-  local i=0
   local start elapsed stats cpu rss_mb
   start=$(date +%s)
-  while kill -0 "$pid" 2>/dev/null; do
-    elapsed=$(($(date +%s) - start))
-    stats=$(get_pid_cpu_mem "$pid")
-    cpu="0"
-    rss_mb=0
-    if [ -n "$stats" ]; then
-      cpu="${stats%% *}"
-      [ -z "$cpu" ] && cpu="0"
-      [ "${stats#* }" != "$stats" ] && rss_mb=$((${stats#* } / 1024))
-    fi
-    printf "\r  %s %s · Elapsed: %ds · CPU %s%% · %d MB    " "${frames[i % 8]}" "$msg" "$elapsed" "$cpu" "$rss_mb" >&2
-    i=$((i + 1))
-    sleep 0.15
-  done
+  while kill -0 "$pid" 2>/dev/null; do sleep 0.5; done
   elapsed=$(($(date +%s) - start))
-  printf "\r  ✓ %s · Elapsed: %ds                    \n" "$msg" "$elapsed" >&2
+  stats=$(get_pid_cpu_mem "$pid" 2>/dev/null) || true
+  cpu="0"
+  rss_mb=0
+  if [ -n "$stats" ]; then
+    cpu="${stats%% *}"
+    [ -z "$cpu" ] && cpu="0"
+    [ "${stats#* }" != "$stats" ] && rss_mb=$((${stats#* } / 1024))
+  fi
+  printf "  ✓ %s · Elapsed: %ds · CPU %s%% · %d MB\n" "$msg" "$elapsed" "$cpu" "$rss_mb" >&2
 }
 
 # Extract full formatted report from agent output for Slack
@@ -922,38 +972,106 @@ header_milestones=""
 header_tasks=""
 header_complete=""
 header_incomplete=""
+header_subtasks=""
 if [ -n "$header_plan_check" ]; then
   header_milestones=$(echo "$header_plan_check" | sed -n 's/.*Milestones:[[:space:]]*\([0-9]*\).*/\1/p' | head -1)
   header_tasks=$(echo "$header_plan_check" | sed -n 's/.*Tasks:[[:space:]]*\([0-9]*\).*/\1/p' | head -1)
   header_complete=$(echo "$header_plan_check" | sed -n 's/.*Complete:[[:space:]]*\([0-9]*\).*/\1/p' | head -1)
   header_incomplete=$(echo "$header_plan_check" | sed -n 's/.*Incomplete:[[:space:]]*\([0-9]*\).*/\1/p' | head -1)
+  header_subtasks=$(echo "$header_plan_check" | sed -n 's/.*Subtasks:[[:space:]]*\([0-9]*\).*/\1/p' | head -1)
 fi
 [ -z "$header_tasks" ] && header_tasks="?"
 [ -z "$header_complete" ] && header_complete="?"
 [ -z "$header_incomplete" ] && header_incomplete="?"
 [ -z "$header_milestones" ] && header_milestones="?"
+[ -z "$header_subtasks" ] && header_subtasks="0"
 
-if [ "$SKIP_VALIDATION" = "true" ]; then
-  echo "Plan-an-go · Implementer only (no validation)"
+# Resolve CLI model for display (Config/Agents block)
+CLI_MODEL_DISPLAY="default"
+case "$CLI_BIN" in
+  claude)  [ -n "${PLAN_AN_GO_CLAUDE_MODEL:-}" ] && CLI_MODEL_DISPLAY="$PLAN_AN_GO_CLAUDE_MODEL" ;;
+  codex)   [ -n "${PLAN_AN_GO_CODEX_MODEL:-}" ] && CLI_MODEL_DISPLAY="$PLAN_AN_GO_CODEX_MODEL" ;;
+  gemini)  [ -n "${PLAN_AN_GO_GEMINI_MODEL:-}" ] && CLI_MODEL_DISPLAY="$PLAN_AN_GO_GEMINI_MODEL" ;;
+  opencode) [ -n "${PLAN_AN_GO_OPENCODE_MODEL:-}" ] && CLI_MODEL_DISPLAY="$PLAN_AN_GO_OPENCODE_MODEL" ;;
+  *)       [ -n "${PLAN_AN_GO_CURSOR_AGENT_MODEL:-}" ] && CLI_MODEL_DISPLAY="$PLAN_AN_GO_CURSOR_AGENT_MODEL" ;;
+esac
+
+# Print minimal-format header (matches tmp/minimal): version, config, agents, swarm, tasks summary, task table.
+print_minimal_header() {
+  local ref_plan="${1:-$PLAN_FILE}"
+  local ref_display="${2:-$DISPLAY_PLAN}"
+  local ref_status="${3:-$initial_plan_status}"
+  local ref_ts
+  ref_ts=$(date '+%Y-%m-%d %H:%M:%S')
+  local pkg_json="${SCRIPT_DIR:-.}/../package.json"
+  local ver="1.0.0"
+  [ -f "$pkg_json" ] && command -v node &>/dev/null && ver=$(node -p "require('$pkg_json').version" 2>/dev/null) || ver="1.0.0"
+  echo "PLAN-TO-GO - Version $ver (minimal mode)"
+  printf "PRD Task Watcher                                               %s\n" "$ref_ts"
+  echo "+----------+-----+-------------------------------------------------------+"
+  echo "Config:"
+  echo "    - Plan: $ref_display"
+  echo "    - Last refresh: $ref_ts"
+  echo "    - CLI: $CLI_BIN"
+  echo "    - CLI model: $CLI_MODEL_DISPLAY"
+  echo "Agents:"
+  local a
+  for a in $(seq 1 "$CONCURRENCY"); do
+    echo "  - AGENT_$(printf '%02d' "$a")"
+    echo "    - CLI: $CLI_BIN"
+    echo "    - CLI model: $CLI_MODEL_DISPLAY"
+    echo "    - CLI flags: ${CLI_FLAGS:-none}"
+  done
+  if [ "$CONCURRENCY" -gt 1 ]; then
+    echo "Swarm:"
+    echo " - SWARM_01"
+    for a in $(seq 1 "$CONCURRENCY"); do
+      echo "    - AGENT_$(printf '%02d' "$a")"
+      echo "        - CLI: $CLI_BIN"
+      echo "        - CLI model: $CLI_MODEL_DISPLAY"
+      echo "        - CLI flags: ${CLI_FLAGS:-none}"
+    done
+  fi
+  local pct="0"
+  [ "${header_tasks:-0}" -gt 0 ] 2>/dev/null && pct=$(awk "BEGIN { printf \"%.1f\", (${header_complete:-0} * 100) / ${header_tasks:-1} }")
+  echo "Tasks Summary:"
+  echo "    - Milestones: ${header_milestones:-?}"
+  echo "    - Tasks: ${header_tasks:-?}"
+  echo "    - Subtasks: ${header_subtasks:-0}"
+  echo "    - Complete: ${header_complete:-?}"
+  echo "    - Incomplete: ${header_incomplete:-?}"
+  echo "    - Progress: ${pct}%"
+  echo "+----------+---+---------------------------------------------------------+"
+  echo "Status: $ref_status"
+  echo "+----------+---+---------------------------------------------------------+"
+  echo "ID         |   | Task summary"
+  echo "+----------+---+---------------------------------------------------------+"
+  local work_bounds work_awk_cond
+  work_bounds=$(get_work_section_bounds "$ref_plan")
+  work_awk_cond=$(build_work_bounds_awk_condition "$work_bounds")
+  grep -n -E '^(\[x\] *- *M[0-9]+:|\[[ ]+\] *- *M[0-9]+:)' "$ref_plan" 2>/dev/null | awk "$work_awk_cond" | sed 's/^[0-9]*://' | while IFS= read -r line; do
+    local id="" done_sym="o" desc=""
+    if echo "$line" | grep -q '^\[x\]'; then
+      done_sym="✓"
+    fi
+    id=$(echo "$line" | sed -n 's/.*\(M[0-9]*:[0-9A-Za-z.]*\).*/\1/p' | head -1)
+    desc=$(echo "$line" | sed -E 's/^\[[x ]+\] *- *M[0-9]+:[0-9A-Za-z.]*-[[:space:]]*//' | sed 's/ \[IN_PROGRESS\].*//' | sed 's/ \[AGENT_[0-9]*\]//g')
+    [ ${#desc} -gt 42 ] && desc="${desc:0:39}..."
+    summary="${id:-?} - $desc"
+    printf "%-10s | %s | %s\n" "${id:-?}" "$done_sym" "$summary"
+  done
+  echo "+----------+-----+---------------------------------------------------------+"
+  echo "Last refresh: $ref_ts"
+  echo "+----------+-----+---------------------------------------------------------+"
+}
+
+if [ "$OUTPUT_TYPE" = "json" ]; then
+  emit_json pipeline_start
 else
-  echo "Plan-an-go · 2-Agent (Implementer → Validator)"
+  print_minimal_header "$PLAN_FILE" "$DISPLAY_PLAN" "$initial_plan_status"
+  echo "  Ctrl+C to stop after current iteration"
+  echo ""
 fi
-echo ""
-echo "  Plan:       $DISPLAY_PLAN (${PLAN_BYTES} B)"
-echo "  Log:        $DISPLAY_LOG"
-echo "  CLI:        $CLI_BIN"
-echo "  Agents:     $CONCURRENCY"
-echo "  Milestones: $header_milestones  |  Task count: $header_tasks ($header_complete complete, $header_incomplete incomplete)"
-echo "  Loops:      $MAX_ITERATIONS parent, $MAX_CHILD_LOOPS child"
-echo "  Started:    $(date '+%Y-%m-%d %H:%M:%S')"
-echo "  Status:     $initial_plan_status"
-slack_label="off"
-[ "$USE_SLACK" = "true" ] && slack_label="on" && [ "$SLACK_USE_THREADS" = "true" ] && slack_label="on (threads)"
-echo "  Slack:      $slack_label  |  Validation: $([ "$SKIP_VALIDATION" = "true" ] && echo "off" || echo "on")  |  Stream: $([ "$STREAM_OUTPUT" = "true" ] && echo "on" || echo "off")"
-[ -n "$TAIL_LOG" ] && echo "  Tail:       $TAIL_LOG (tail -f to watch)"
-echo ""
-echo "  Ctrl+C to stop after current iteration"
-echo ""
 
 # Create single parent thread for entire pipeline (if Slack enabled and threading enabled)
 if [ "$USE_SLACK" = "true" ]; then
@@ -1017,7 +1135,7 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
   # When CONCURRENCY > 1 and pool mode (WAIT_FOR_ALL=false), tasks are assigned in the pool loop below.
   
   #─────────────────────────────────────────────────────────────────────────────
-  # Plan status: milestones, tasks, complete/incomplete (when not quiet)
+  # Plan status: minimal format (Counts, Completion, then In Progress block)
   #─────────────────────────────────────────────────────────────────────────────
   if [ "$QUIET" != "true" ] && [ -f "$PLAN_CHECK_SCRIPT" ]; then
     plan_check_out=$([ -x "$PLAN_CHECK_SCRIPT" ] && "$PLAN_CHECK_SCRIPT" "$PLAN_FILE" 2>/dev/null || bash "$PLAN_CHECK_SCRIPT" "$PLAN_FILE" 2>/dev/null) || true
@@ -1030,7 +1148,6 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
   # STAGE 1: IMPLEMENTER AGENT(S)
   #─────────────────────────────────────────────────────────────────────────────
   # Show the task(s) actually in progress (lines with [IN_PROGRESS] or [IN_PROGRESS]:[AGENT_NN])
-  # so each agent's displayed task matches what it was assigned. Order by agent (AGENT_01, AGENT_02, ...).
   work_bounds=$(get_work_section_bounds "$PLAN_FILE")
   work_awk_cond=$(build_work_bounds_awk_condition "$work_bounds")
   task_parts=()
@@ -1050,7 +1167,6 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
       done < <(grep -n "\[IN_PROGRESS\]:\[${agent_id}\]" "$PLAN_FILE" 2>/dev/null | awk "$work_awk_cond" | head -1 | sed 's/^[0-9]*://')
     done
   fi
-  # If no [IN_PROGRESS] lines (e.g. pool mode before first assign), show first N incomplete in work section(s)
   if [ ${#task_parts[@]} -eq 0 ]; then
     while IFS= read -r task_line; do
       [ -z "$task_line" ] && continue
@@ -1058,13 +1174,9 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
     done < <(grep -n -E '^(\- \[ \] \*\*|\[ \] - M[0-9]+:|\[  \] - M[0-9]+:)' "$PLAN_FILE" 2>/dev/null | awk "$work_awk_cond" | sed 's/^[0-9]*://' | head -n "$CONCURRENCY")
   fi
 
-  # One clear "In Progress" block + what we're doing (so user knows what the spinner means)
-  if [ "$QUIET" != "true" ] && [ ${#task_parts[@]} -gt 0 ]; then
-    if [ "$CONCURRENCY" -eq 1 ]; then
-      echo "Now: Implementer is working on the task below. When done we mark it complete and continue to the next."
-    else
-      echo "Now: $CONCURRENCY implementers working on the tasks below. When one finishes it takes the next task (pool)."
-    fi
+  # Minimal-format "In Progress" block (box separator + Workers-style lines)
+  if [ "$OUTPUT_TYPE" != "json" ] && [ "$QUIET" != "true" ] && [ ${#task_parts[@]} -gt 0 ]; then
+    echo "Now: Implementer is working on the task below. When done we mark it complete and continue to the next."
     echo ""
     echo "In Progress:"
     for i in "${!task_parts[@]}"; do
@@ -1102,7 +1214,7 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
       else
         PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS "$IMPL_SCRIPT" > "$impl_output" 2>&1 &
         impl_pid=$!
-        if [ "$QUIET" = "true" ]; then wait $impl_pid; else spinner_bounce $impl_pid "Implementer working"; wait $impl_pid; fi
+        if [ "$QUIET" = "true" ]; then wait $impl_pid; else wait_pid_with_stats $impl_pid "Implementer working"; wait $impl_pid; fi
         impl_exit=$?
       fi
     fi
@@ -1123,7 +1235,7 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
       if [ "$QUIET" = "true" ]; then
         for p in "${impl_pids[@]}"; do wait "$p" || impl_exit=$?; done
       else
-        spinner_bounce_multi "Waiting for $CONCURRENCY implementers" "${impl_pids[@]}"
+        wait_pids_multi "Waiting for $CONCURRENCY implementers" "${impl_pids[@]}"
         for p in "${impl_pids[@]}"; do wait "$p" || impl_exit=$?; done
       fi
       for f in "${impl_outputs[@]}"; do
@@ -1139,10 +1251,11 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
       slot_pid=()
       slot_out=()
       pool_start=$(date +%s)
-      pool_frame=0
-      pool_frames=("[=    ]" "[ =   ]" "[  =  ]" "[   = ]" "[    =]" "[   = ]" "[  =  ]" "[ =   ]")
+      pool_completed=$(mktemp "$TMP_DIR/forever-pool-completed.XXXXXX")
       for idx in $(seq 0 $((CONCURRENCY - 1))); do
         agent_id=$(printf 'AGENT_%02d' "$((idx + 1))")
+        slot_last_cpu[$idx]="0"
+        slot_last_rss_mb[$idx]=0
         if mark_one_incomplete_with_agent "$PLAN_FILE" "$agent_id"; then
           out_f=$(mktemp "$TMP_DIR/forever-agent.XXXXXX")
           slot_out[$idx]="$out_f"
@@ -1160,12 +1273,18 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
         done
         return 1
       }
+      last_workers_print=0
       # Portable "wait for any child": wait -n is Bash 4.3+ and not available on macOS (Bash 3.2)
       while any_running; do
         found=0
         for j in $(seq 0 $((CONCURRENCY - 1))); do
           [ -z "${slot_pid[$j]:-}" ] && continue
           if ! kill -0 "${slot_pid[$j]}" 2>/dev/null; then
+            agent_id=$(printf 'AGENT_%02d' "$((j + 1))")
+            task_line=$(get_agent_task_line "$PLAN_FILE" "$agent_id" "$work_awk_cond")
+            completed_cpu="${slot_last_cpu[$j]:-0}"
+            completed_rss="${slot_last_rss_mb[$j]:-0}"
+            printf "%s\t%s\t%s\t%s\n" "$agent_id" "$completed_cpu" "$completed_rss" "$task_line" >> "$pool_completed"
             slot_exit=0
             wait "${slot_pid[$j]}" 2>/dev/null || slot_exit=$?
             [ $slot_exit -ne 0 ] && impl_exit=$slot_exit
@@ -1184,29 +1303,57 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
             break
           fi
         done
-        if [ "$found" -eq 0 ] && [ "$QUIET" != "true" ]; then
-          agg=""
-          n_running=0
-          for j in $(seq 0 $((CONCURRENCY - 1))); do
-            [ -z "${slot_pid[$j]:-}" ] && continue
-            if kill -0 "${slot_pid[$j]}" 2>/dev/null; then
-              n_running=$((n_running + 1))
-              agg="$agg $(get_pid_cpu_mem "${slot_pid[$j]}")"
-            fi
-          done
-          pool_elapsed=$(($(date +%s) - pool_start))
-          pool_cpu="0"
-          pool_rss_mb=0
-          if [ -n "$agg" ]; then
-            read -r pool_cpu pool_rss <<< $(echo "$agg" | awk '{ c=0; r=0; for(i=1;i<=NF;i+=2) c+=$i; for(i=2;i<=NF;i+=2) r+=$i; printf "%.1f %d", c, r }' 2>/dev/null) || true
-            [ -n "${pool_rss:-}" ] && pool_rss_mb=$((pool_rss / 1024))
+        if [ "$found" -eq 0 ] && [ "$QUIET" != "true" ] && [ "$OUTPUT_TYPE" != "json" ]; then
+          now=$(date +%s)
+          if [ $((now - last_workers_print)) -ge 3 ]; then
+            last_workers_print=$now
+            echo "+----------+-----+---------------------------------------------------------+" >&2
+            echo "Workers:" >&2
+            for j in $(seq 0 $((CONCURRENCY - 1))); do
+              [ -z "${slot_pid[$j]:-}" ] && continue
+              kill -0 "${slot_pid[$j]}" 2>/dev/null || continue
+              agent_id=$(printf 'AGENT_%02d' "$((j + 1))")
+              ac=""
+              [ -f "$AGENT_COLORS_SCRIPT" ] && ac=$(get_agent_color "$agent_id")
+              stats=$(get_pid_cpu_mem "${slot_pid[$j]}" 2>/dev/null) || stats="0 0"
+              cpu="${stats%% *}"
+              rss_mb=0
+              [ "${stats#* }" != "$stats" ] && rss_mb=$((${stats#* } / 1024))
+              slot_last_cpu[$j]="$cpu"
+              slot_last_rss_mb[$j]=$rss_mb
+              task_line=$(get_agent_task_line "$PLAN_FILE" "$agent_id" "$work_awk_cond")
+              printf "%s[IN_PROGRESS]:[%s]%s · CPU %s%% · %d MB\n" "$ac" "$agent_id" "$RESET" "$cpu" "$rss_mb" >&2
+              if [ -n "$task_line" ]; then
+                [ "$HIGHLIGHT_AGENTS" = "true" ] && [ -n "$ac" ] && printf "%s - %s%s\n" "$ac" "$task_line" "$RESET" >&2 || printf " - %s\n" "$task_line" >&2
+              fi
+            done
+            echo "+----------+-----+---------------------------------------------------------+" >&2
           fi
-          printf "\r  %s Pool: %d agents · %ds · CPU %s%% · %d MB    " "${pool_frames[pool_frame % 8]}" "$n_running" "$pool_elapsed" "$pool_cpu" "$pool_rss_mb" >&2
-          pool_frame=$((pool_frame + 1))
         fi
         [ "$found" -eq 0 ] && sleep 0.5
       done
-      [ "$QUIET" != "true" ] && printf "\r  ✓ Pool done · %ds                    \n" "$(($(date +%s) - pool_start))" >&2
+      [ "$QUIET" != "true" ] && [ "$OUTPUT_TYPE" != "json" ] && printf "  ✓ Pool done · %ds\n" "$(($(date +%s) - pool_start))" >&2
+      if [ "$QUIET" != "true" ] && [ "$OUTPUT_TYPE" != "json" ] && [ -f "$pool_completed" ] && [ -s "$pool_completed" ]; then
+        while IFS= read -r line; do
+          [ -z "$line" ] && continue
+          agent_id=$(echo "$line" | cut -f1)
+          completed_cpu=$(echo "$line" | cut -f2)
+          completed_rss=$(echo "$line" | cut -f3)
+          task_line=$(echo "$line" | cut -f4-)
+          [ -z "$task_line" ] && task_line="(task completed)"
+          ac=""
+          [ -f "$AGENT_COLORS_SCRIPT" ] && ac=$(get_agent_color "$agent_id")
+          echo "+----------+-----+---------------------------------------------------------+" >&2
+          printf "%s[COMPLETE]:[%s]%s · CPU %s%% · %s MB\n" "$ac" "$agent_id" "$RESET" "$completed_cpu" "$completed_rss" >&2
+          if [ "$HIGHLIGHT_AGENTS" = "true" ] && [ -n "$ac" ]; then
+            printf "%s    - Task: ✓ %s%s\n" "$ac" "$task_line" "$RESET" >&2
+          else
+            printf "    - Task: ✓ %s\n" "$task_line" >&2
+          fi
+          echo "+----------+-----+---------------------------------------------------------+" >&2
+        done < "$pool_completed"
+      fi
+      [ -f "$pool_completed" ] && rm -f "$pool_completed"
       for idx in $(seq 0 $((CONCURRENCY - 1))); do
         [ -f "${slot_out[$idx]:-}" ] && rm -f "${slot_out[$idx]}"
       done
@@ -1309,7 +1456,7 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
       else
         PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS "$VAL_SCRIPT" "$impl_output" > "$val_output" 2>&1 &
         val_pid=$!
-        if [ "$QUIET" = "true" ]; then wait $val_pid; else spinner_bounce $val_pid "Validator auditing"; wait $val_pid; fi
+        if [ "$QUIET" = "true" ]; then wait $val_pid; else wait_pid_with_stats $val_pid "Validator auditing"; wait $val_pid; fi
         val_exit=$?
       fi
     fi
@@ -1393,19 +1540,22 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
   eta=$((avg_per_iter * remaining))
   current_plan_status=$(verify_plan_completion "$PLAN_FILE")
 
-  if [ "$VERBOSE" = "true" ]; then
-    echo ""
-    echo "--- Iteration $iteration summary ---"
-    echo "  Mode: $mode  ·  Duration: $(format_duration $iter_duration)  ·  Confidence: $confidence/10  ·  Verdict: $verdict"
-    [ -n "$confidence_justification" ] && echo "  Confidence justification: $confidence_justification"
-    echo "  Status: $status  ·  Plan: $current_plan_status"
-    echo "  Elapsed: $(format_duration $total_elapsed)  ·  Avg/iter: ${avg_per_iter}s  ·  ETA: $(format_duration $eta)"
-  elif [ "$QUIET" != "true" ]; then
-    # One line: iteration, duration, plan, verdict (when validation on), ETA
-    if [ "$SKIP_VALIDATION" = "true" ]; then
-      echo "Iteration $iteration · $(format_duration_short $iter_duration) · Plan: $current_plan_status · ETA: $(format_duration_short $eta)"
-    else
-      echo "Iteration $iteration · $(format_duration_short $iter_duration) · Plan: $current_plan_status · Verdict: $verdict · ETA: $(format_duration_short $eta)"
+  if [ "$OUTPUT_TYPE" = "json" ]; then
+    emit_json iteration_end
+  else
+    if [ "$VERBOSE" = "true" ]; then
+      echo ""
+      echo "--- Iteration $iteration summary ---"
+      echo "  Mode: $mode  ·  Duration: $(format_duration $iter_duration)  ·  Confidence: $confidence/10  ·  Verdict: $verdict"
+      [ -n "$confidence_justification" ] && echo "  Confidence justification: $confidence_justification"
+      echo "  Status: $status  ·  Plan: $current_plan_status"
+      echo "  Elapsed: $(format_duration $total_elapsed)  ·  Avg/iter: ${avg_per_iter}s  ·  ETA: $(format_duration $eta)"
+    elif [ "$QUIET" != "true" ]; then
+      if [ "$SKIP_VALIDATION" = "true" ]; then
+        echo "Iteration $iteration · $(format_duration_short $iter_duration) · Plan: $current_plan_status · ETA: $(format_duration_short $eta)"
+      else
+        echo "Iteration $iteration · $(format_duration_short $iter_duration) · Plan: $current_plan_status · Verdict: $verdict · ETA: $(format_duration_short $eta)"
+      fi
     fi
   fi
   
@@ -1540,10 +1690,14 @@ Continuing pipeline..." 2>/dev/null || true
   
   if [ "$status" = "ALL_TASKS_COMPLETE" ]; then
     play_sound_plan_done
-    echo ""
-    echo "--- All tasks complete ---"
-    echo "  Iterations: $iteration  ·  Time: $(format_duration_short $total_elapsed)  ·  Finished $(date '+%Y-%m-%d %H:%M:%S')"
-    
+    if [ "$OUTPUT_TYPE" = "json" ]; then
+      emit_json pipeline_end "all_complete" "$total_elapsed"
+    else
+      echo ""
+      echo "--- All tasks complete ---"
+      echo "  Iterations: $iteration  ·  Time: $(format_duration_short $total_elapsed)  ·  Finished $(date '+%Y-%m-%d %H:%M:%S')"
+    fi
+
     strip_in_progress_from_file "$PLAN_FILE"
     
     complete_msg="🎉 *ALL TASKS COMPLETE!*
@@ -1570,9 +1724,14 @@ Finished: $(date '+%Y-%m-%d %H:%M:%S')"
   if [ "$STOP_REQUESTED" = "true" ]; then
     total_elapsed=$(($(date +%s) - start_time))
     strip_in_progress_from_file "$PLAN_FILE"
-    echo ""
-    echo "--- Stopped (Ctrl+C) ---"
-    echo "  Iterations: $iteration/$MAX_ITERATIONS  ·  Time: $(format_duration_short $total_elapsed)  ·  Stopped $(date '+%Y-%m-%d %H:%M:%S')"
+    current_plan_status=$(verify_plan_completion "$PLAN_FILE")
+    if [ "$OUTPUT_TYPE" = "json" ]; then
+      emit_json pipeline_end "stopped" "$total_elapsed"
+    else
+      echo ""
+      echo "--- Stopped (Ctrl+C) ---"
+      echo "  Iterations: $iteration/$MAX_ITERATIONS  ·  Time: $(format_duration_short $total_elapsed)  ·  Stopped $(date '+%Y-%m-%d %H:%M:%S')"
+    fi
     
     # Post final message to thread if available, otherwise standalone
     stop_msg="🛑 *Manually Stopped*
@@ -1615,9 +1774,14 @@ if [ "$total_elapsed" -lt 5 ] && [ "$iteration" -ge "$MAX_ITERATIONS" ]; then
   echo "⚠️  WARNING: Check logs and ensure scripts are executable." >&2
 fi
 
-echo ""
-echo "--- Max iterations reached ($MAX_ITERATIONS) ---"
-echo "  Time: $(format_duration_short $total_elapsed)  ·  Log: $DISPLAY_LOG  ·  Finished $(date '+%Y-%m-%d %H:%M:%S')"
+current_plan_status=$(verify_plan_completion "$PLAN_FILE")
+if [ "$OUTPUT_TYPE" = "json" ]; then
+  emit_json pipeline_end "max_iterations" "$total_elapsed"
+else
+  echo ""
+  echo "--- Max iterations reached ($MAX_ITERATIONS) ---"
+  echo "  Time: $(format_duration_short $total_elapsed)  ·  Log: $DISPLAY_LOG  ·  Finished $(date '+%Y-%m-%d %H:%M:%S')"
+fi
 
 max_iter_msg="⏸️ *Max iterations reached* ($MAX_ITERATIONS)
 
