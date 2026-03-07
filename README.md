@@ -1,4 +1,4 @@
-<img src="./assets/images/readme-header.png" alt="plan-an-go - Orchestrate Your CLI Workflows" width="100%;" />
+<img src="https://raw.githubusercontent.com/SkinnnyJay/plan-an-go/main/assets/images/readme-header.png" alt="plan-an-go - Orchestrate Your CLI Workflows" width="100%;" />
 
 # plan-an-go
 
