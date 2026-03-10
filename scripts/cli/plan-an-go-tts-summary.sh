@@ -141,10 +141,12 @@ fi
 
 # Write prompt to temp file for safe JSON encoding
 prompt_temp=$(mktemp "$TMP_DIR/tts-prompt.XXXXXX")
-printf '%s' "$prompt_filled" > "$prompt_temp"
+printf '%s' "$prompt_filled" >"$prompt_temp"
 chat_response=$(mktemp "$TMP_DIR/tts-chat.XXXXXX")
 tts_audio=$(mktemp "$TMP_DIR/tts-audio.XXXXXX.mp3")
+# shellcheck disable=SC2329
 cleanup() {
+  # shellcheck disable=SC2317
   rm -f "$prompt_temp" "$chat_response" "$tts_audio"
 }
 trap cleanup EXIT
@@ -175,7 +177,7 @@ summary_text=$(echo "$summary_text" | tr '\n' ' ' | sed 's/  */ /g' | sed 's/^ *
 if [ ${#summary_text} -gt 4096 ]; then
   summary_text="${summary_text:0:4090}..."
 fi
-printf '%s' "$summary_text" > "$prompt_temp"
+printf '%s' "$summary_text" >"$prompt_temp"
 # OpenAI TTS accepts optional speed (0.25 to 4.0)
 speed_num=1.0
 if [[ "$TTS_SPEED" =~ ^[0-9]+\.?[0-9]*$ ]]; then

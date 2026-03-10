@@ -64,16 +64,11 @@ for arg in "$@"; do
     --task-detail=*)
       TASK_DETAIL="${arg#*=}"
       ;;
-    --cli)
-      ;;
-    --cli-flags)
-      ;;
-    --in)
-      ;;
-    --out)
-      ;;
-    --task-detail)
-      ;;
+    --cli) ;;
+    --cli-flags) ;;
+    --in) ;;
+    --out) ;;
+    --task-detail) ;;
     *)
       if [ "${PREV_ARG}" = "--cli" ]; then
         CLI_BIN="$arg"
@@ -99,10 +94,10 @@ done
 # Normalize task detail to uppercase for comparison
 TASK_DETAIL="$(echo "$TASK_DETAIL" | tr '[:lower:]' '[:upper:]')"
 case "$TASK_DETAIL" in
-  L|LOW)           TASK_DETAIL="L" ;;
-  M|MEDIUM)        TASK_DETAIL="M" ;;
-  H|HIGH)          TASK_DETAIL="H" ;;
-  XH|EXTRA-HIGH|X) TASK_DETAIL="XH" ;;
+  L | LOW) TASK_DETAIL="L" ;;
+  M | MEDIUM) TASK_DETAIL="M" ;;
+  H | HIGH) TASK_DETAIL="H" ;;
+  XH | EXTRA-HIGH | X) TASK_DETAIL="XH" ;;
   *)
     echo "ERROR: --task-detail must be L, M, H, or XH (got: $TASK_DETAIL)" >&2
     exit 1
@@ -112,17 +107,17 @@ esac
 # Resolve CLI flags: use PLAN_AN_GO_CLI_FLAGS if set, else per-CLI vars
 if [ -z "$CLI_FLAGS" ]; then
   case "$CLI_BIN" in
-    claude)         CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
-    cline)          CLI_FLAGS="${PLAN_AN_GO_CLINE_FLAGS:-}" ;;
-    codex)          CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
-    copilot)        CLI_FLAGS="${PLAN_AN_GO_COPILOT_FLAGS:-}" ;;
-    cursor-agent)   CLI_FLAGS="${PLAN_AN_GO_CURSOR_AGENT_FLAGS:-}" ;;
-    droid)          CLI_FLAGS="${PLAN_AN_GO_DROID_FLAGS:-}" ;;
-    gemini)         CLI_FLAGS="${PLAN_AN_GO_GEMINI_FLAGS:-}" ;;
-    goose)          CLI_FLAGS="${PLAN_AN_GO_GOOSE_FLAGS:-}" ;;
-    kiro)           CLI_FLAGS="${PLAN_AN_GO_KIRO_FLAGS:-}" ;;
-    opencode)       CLI_FLAGS="${PLAN_AN_GO_OPENCODE_FLAGS:-}" ;;
-    *)              ;;
+    claude) CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
+    cline) CLI_FLAGS="${PLAN_AN_GO_CLINE_FLAGS:-}" ;;
+    codex) CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
+    copilot) CLI_FLAGS="${PLAN_AN_GO_COPILOT_FLAGS:-}" ;;
+    cursor-agent) CLI_FLAGS="${PLAN_AN_GO_CURSOR_AGENT_FLAGS:-}" ;;
+    droid) CLI_FLAGS="${PLAN_AN_GO_DROID_FLAGS:-}" ;;
+    gemini) CLI_FLAGS="${PLAN_AN_GO_GEMINI_FLAGS:-}" ;;
+    goose) CLI_FLAGS="${PLAN_AN_GO_GOOSE_FLAGS:-}" ;;
+    kiro) CLI_FLAGS="${PLAN_AN_GO_KIRO_FLAGS:-}" ;;
+    opencode) CLI_FLAGS="${PLAN_AN_GO_OPENCODE_FLAGS:-}" ;;
+    *) ;;
   esac
 fi
 
@@ -148,7 +143,7 @@ if [ -n "$INPUT_FILE" ] && [ ! -f "$INPUT_FILE" ]; then
 fi
 
 case "$CLI_BIN" in
-  claude|cline|copilot|codex|cursor-agent|droid|gemini|goose|kiro|opencode) ;;
+  claude | cline | copilot | codex | cursor-agent | droid | gemini | goose | kiro | opencode) ;;
   *)
     echo "ERROR: --cli must be 'claude', 'cline', 'copilot', 'codex', 'cursor-agent', 'droid', 'gemini', 'goose', 'kiro', or 'opencode' (got: $CLI_BIN)" >&2
     exit 1
@@ -160,7 +155,7 @@ if [ ! -f "$PLANNING_PROMPT" ]; then
   exit 1
 fi
 
-if ! command -v "$CLI_BIN" &> /dev/null; then
+if ! command -v "$CLI_BIN" &>/dev/null; then
   echo "ERROR: '$CLI_BIN' CLI not found in PATH" >&2
   exit 1
 fi
@@ -171,49 +166,55 @@ temp_out=$(mktemp "$TMP_DIR/planner-out.XXXXXX")
 temp_err=$(mktemp "$TMP_DIR/planner-err.XXXXXX")
 trap 'rm -f "$temp_prompt" "$temp_out" "$temp_err"' EXIT
 
-cat "$PLANNING_PROMPT" >> "$temp_prompt"
-echo "" >> "$temp_prompt"
+{
+  cat "$PLANNING_PROMPT"
+  echo ""
+} >>"$temp_prompt"
 
 # Task granularity: inject instructions based on --task-detail (L=low, M=medium, H=high, XH=extra high)
-echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
-echo "TASK GRANULARITY (obey this level for how many and how fine-grained tasks are)" >> "$temp_prompt"
-echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
+{
+  echo "═══════════════════════════════════════════════════════════════════════════════"
+  echo "TASK GRANULARITY (obey this level for how many and how fine-grained tasks are)"
+  echo "═══════════════════════════════════════════════════════════════════════════════"
+} >>"$temp_prompt"
 case "$TASK_DETAIL" in
   L)
-    echo "- **Level: LOW (L).** Use fewer, coarser tasks. Group related work into single tasks (e.g. \"Implement API routes and validation\" rather than one task per route). Aim for 1–4 tasks per milestone. Prefer broader descriptions; avoid subtasks unless necessary." >> "$temp_prompt"
+    echo "- **Level: LOW (L).** Use fewer, coarser tasks. Group related work into single tasks (e.g. \"Implement API routes and validation\" rather than one task per route). Aim for 1–4 tasks per milestone. Prefer broader descriptions; avoid subtasks unless necessary." >>"$temp_prompt"
     ;;
   M)
-    echo "- **Level: MEDIUM (M).** Use granular but not exhaustive tasks. Each task is one concrete step; use subtasks (e.g. M1:2.1, M1:2.2) when a step has multiple parts. Aim for 2–6 tasks per milestone. Include file paths or artifact names where helpful." >> "$temp_prompt"
+    echo "- **Level: MEDIUM (M).** Use granular but not exhaustive tasks. Each task is one concrete step; use subtasks (e.g. M1:2.1, M1:2.2) when a step has multiple parts. Aim for 2–6 tasks per milestone. Include file paths or artifact names where helpful." >>"$temp_prompt"
     ;;
   H)
-    echo "- **Level: HIGH (H).** Use more granular tasks. Break each logical step into smaller tasks; include file paths and concrete steps; use subtasks liberally. Aim for 4–10+ tasks per milestone where appropriate. Task descriptions should be specific enough that an implementer knows exactly what to do." >> "$temp_prompt"
+    echo "- **Level: HIGH (H).** Use more granular tasks. Break each logical step into smaller tasks; include file paths and concrete steps; use subtasks liberally. Aim for 4–10+ tasks per milestone where appropriate. Task descriptions should be specific enough that an implementer knows exactly what to do." >>"$temp_prompt"
     ;;
   XH)
-    echo "- **Level: EXTRA HIGH (XH).** Use maximum detail. Every actionable step is its own task. Include exact paths, env vars, and acceptance criteria in task lines where helpful; use subtasks liberally (e.g. M1:2.1, M1:2.2, M1:2.3). Prefer more milestones and many small tasks over fewer large ones. An implementer should be able to complete each task in a single focused change." >> "$temp_prompt"
+    echo "- **Level: EXTRA HIGH (XH).** Use maximum detail. Every actionable step is its own task. Include exact paths, env vars, and acceptance criteria in task lines where helpful; use subtasks liberally (e.g. M1:2.1, M1:2.2, M1:2.3). Prefer more milestones and many small tasks over fewer large ones. An implementer should be able to complete each task in a single focused change." >>"$temp_prompt"
     ;;
   *) ;;
 esac
-echo "" >> "$temp_prompt"
+echo "" >>"$temp_prompt"
 
 # Template reference (before input so "match this structure" is clear)
 if [ -f "$TEMPLATE_FILE" ]; then
-  echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
-  echo "REFERENCE TEMPLATE (match this structure)" >> "$temp_prompt"
-  echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
-  cat "$TEMPLATE_FILE" >> "$temp_prompt"
-  echo "" >> "$temp_prompt"
+  {
+    echo "═══════════════════════════════════════════════════════════════════════════════"
+    echo "REFERENCE TEMPLATE (match this structure)"
+    echo "═══════════════════════════════════════════════════════════════════════════════"
+    cat "$TEMPLATE_FILE"
+    echo ""
+  } >>"$temp_prompt"
 fi
 
 # Input document at the very end so the model definitely sees it
-echo "BEGIN INPUT DOCUMENT" >> "$temp_prompt"
-echo "" >> "$temp_prompt"
+echo "BEGIN INPUT DOCUMENT" >>"$temp_prompt"
+echo "" >>"$temp_prompt"
 if [ -n "$USER_PROMPT" ]; then
-  echo "$USER_PROMPT" >> "$temp_prompt"
+  echo "$USER_PROMPT" >>"$temp_prompt"
 else
-  cat "$INPUT_FILE" >> "$temp_prompt"
+  cat "$INPUT_FILE" >>"$temp_prompt"
 fi
-echo "" >> "$temp_prompt"
-echo "END INPUT DOCUMENT" >> "$temp_prompt"
+echo "" >>"$temp_prompt"
+echo "END INPUT DOCUMENT" >>"$temp_prompt"
 
 # Invoke CLI (same pattern as plan-an-go.sh)
 CLAUDE_MODEL="${PLAN_AN_GO_CLAUDE_MODEL:-claude-sonnet-4-20250514}"
@@ -246,7 +247,7 @@ elif [ "$CLI_BIN" = "opencode" ]; then
   [ -n "$OPENCODE_MODEL" ] && CLI_ARGS+=(--model "$OPENCODE_MODEL")
 fi
 if [ -n "$CLI_FLAGS" ]; then
-  read -r -a EXTRA_CLI_ARGS <<< "$CLI_FLAGS"
+  read -r -a EXTRA_CLI_ARGS <<<"$CLI_FLAGS"
   CLI_ARGS+=("${EXTRA_CLI_ARGS[@]}")
 fi
 
@@ -275,17 +276,17 @@ echo "[planner] Generating plan with $CLI_BIN (task-detail: $TASK_DETAIL)..." >&
 
 set +e
 if [ "$CLI_BIN" = "codex" ]; then
-  codex exec "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_out" 2> "$temp_err" &
+  codex exec "${CLI_ARGS[@]}" - <"$temp_prompt" >"$temp_out" 2>"$temp_err" &
 elif [ "$CLI_BIN" = "droid" ]; then
-  droid "${CLI_ARGS[@]}" -f "$temp_prompt" > "$temp_out" 2> "$temp_err" &
+  droid "${CLI_ARGS[@]}" -f "$temp_prompt" >"$temp_out" 2>"$temp_err" &
 elif [ "$CLI_BIN" = "kiro" ]; then
-  kiro "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" > "$temp_out" 2> "$temp_err" &
+  kiro "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" >"$temp_out" 2>"$temp_err" &
 elif [ "$CLI_BIN" = "opencode" ]; then
-  opencode "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" > "$temp_out" 2> "$temp_err" &
+  opencode "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" >"$temp_out" 2>"$temp_err" &
 elif [ "$CLI_BIN" = "gemini" ] || [ "$CLI_BIN" = "goose" ] || [ "$CLI_BIN" = "cline" ] || [ "$CLI_BIN" = "copilot" ]; then
-  "$CLI_BIN" "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_out" 2> "$temp_err" &
+  "$CLI_BIN" "${CLI_ARGS[@]}" - <"$temp_prompt" >"$temp_out" 2>"$temp_err" &
 else
-  "$CLI_BIN" "${CLI_ARGS[@]}" -p "@$temp_prompt" > "$temp_out" 2> "$temp_err" &
+  "$CLI_BIN" "${CLI_ARGS[@]}" -p "@$temp_prompt" >"$temp_out" 2>"$temp_err" &
 fi
 cli_pid=$!
 planner_spinner "$cli_pid" "[planner] Generating plan with $CLI_BIN (task-detail: $TASK_DETAIL)..."
@@ -316,11 +317,11 @@ METADATA_SCRIPT="$SCRIPT_DIR/scripts/plan-an-go-doc-metadata.sh"
 temp_final=$(mktemp "$TMP_DIR/planner-final.XXXXXX")
 trap 'rm -f "$temp_prompt" "$temp_out" "$temp_err" "$temp_final"' EXIT
 if [ -f "$METADATA_SCRIPT" ]; then
-  bash "$METADATA_SCRIPT" "plan-an-go-planner" "$CLI_BIN" > "$temp_final"
-  echo "" >> "$temp_final"
-  cat "$temp_out" >> "$temp_final"
+  bash "$METADATA_SCRIPT" "plan-an-go-planner" "$CLI_BIN" >"$temp_final"
+  echo "" >>"$temp_final"
+  cat "$temp_out" >>"$temp_final"
 else
-  cat "$temp_out" > "$temp_final"
+  cat "$temp_out" >"$temp_final"
 fi
 mv "$temp_final" "$OUT_FILE"
 echo "[planner] Wrote PLAN to $OUT_FILE" >&2

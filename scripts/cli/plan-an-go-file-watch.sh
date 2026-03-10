@@ -13,13 +13,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 RESET='\033[0m'
 BOLD='\033[1m'
 
 # Check if fswatch is installed
-if ! command -v fswatch &> /dev/null; then
+if ! command -v fswatch &>/dev/null; then
   echo -e "${RED}Error: fswatch is not installed.${RESET}"
   echo -e "${YELLOW}Install it with: $(install_hint fswatch)${RESET}"
   exit 1
@@ -49,7 +48,7 @@ format_timestamp() {
 # Function to get relative path
 get_relative_path() {
   local full_path="$1"
-  local relative_path="${full_path#$WATCH_DIR/}"
+  local relative_path="${full_path#"$WATCH_DIR"/}"
   if [ "$relative_path" = "$full_path" ]; then
     echo "./$(basename "$full_path")"
   else
@@ -64,12 +63,12 @@ file_seen() {
 
 # Function to mark file as seen
 mark_seen() {
-  echo "$1" >> "$STATE_FILE"
+  echo "$1" >>"$STATE_FILE"
 }
 
 # Function to remove file from seen list
 mark_unseen() {
-  grep -vFx "$1" "$STATE_FILE" > "${STATE_FILE}.tmp" 2>/dev/null
+  grep -vFx "$1" "$STATE_FILE" >"${STATE_FILE}.tmp" 2>/dev/null
   mv "${STATE_FILE}.tmp" "$STATE_FILE" 2>/dev/null
 }
 

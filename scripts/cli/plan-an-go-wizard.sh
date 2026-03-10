@@ -20,10 +20,12 @@ PASSTHROUGH=()
 for arg in "$@"; do
   case "$arg" in
     --skip=*) SKIP="${arg#*=}" ;;
-    --skip)   ;;
+    --skip) ;;
     *)
-      if [ "$PREV_ARG" = "--skip" ]; then SKIP="$arg"
-      else PASSTHROUGH+=("$arg")
+      if [ "$PREV_ARG" = "--skip" ]; then
+        SKIP="$arg"
+      else
+        PASSTHROUGH+=("$arg")
       fi
       ;;
   esac
@@ -35,7 +37,7 @@ export WIZARD_STATE_FILE="$STATE_FILE"
 export PLAN_AN_GO_ROOT="$ROOT"
 # Clear state at start (fresh run)
 if [ "$SKIP" -eq 0 ] && [ -f "$STATE_FILE" ]; then
-  : > "$STATE_FILE"
+  : >"$STATE_FILE"
 fi
 
 echo "plan-an-go wizard (PRD → review → update → validate → write → launch)" >&2
@@ -48,12 +50,12 @@ run_step() {
   "$WIZARD_DIR/wizard-step-$n-$name.sh" "$@"
 }
 
-[ "$SKIP" -lt 1 ] && run_step 1 prd "${PASSTHROUGH[@]}" || true
-[ "$SKIP" -lt 2 ] && run_step 2 review-prd || true
-[ "$SKIP" -lt 3 ] && run_step 3 update-prd || true
-[ "$SKIP" -lt 4 ] && run_step 4 validate-prd || true
-[ "$SKIP" -lt 5 ] && run_step 5 write-file || true
-[ "$SKIP" -lt 6 ] && run_step 6 launch || true
+if [ "$SKIP" -lt 1 ]; then run_step 1 prd "${PASSTHROUGH[@]}"; fi
+if [ "$SKIP" -lt 2 ]; then run_step 2 review-prd; fi
+if [ "$SKIP" -lt 3 ]; then run_step 3 update-prd; fi
+if [ "$SKIP" -lt 4 ]; then run_step 4 validate-prd; fi
+if [ "$SKIP" -lt 5 ]; then run_step 5 write-file; fi
+if [ "$SKIP" -lt 6 ]; then run_step 6 launch; fi
 
 echo "" >&2
 echo "[wizard] Done." >&2

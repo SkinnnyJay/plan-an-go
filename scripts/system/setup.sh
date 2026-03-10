@@ -11,6 +11,7 @@
 set -e
 set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC2034
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 SKIP_LINK=false
@@ -22,12 +23,12 @@ INSTALL_ARGS=()
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --skip-link)     SKIP_LINK=true ;;
+    --skip-link) SKIP_LINK=true ;;
     --skip-install) SKIP_INSTALL=true ;;
-    --skip-auth)    SKIP_AUTH=true ;;
-    --skip-verify)  SKIP_VERIFY=true ;;
-    --force)        VERIFY_FORCE=true ;;
-    *)              INSTALL_ARGS+=("$1") ;;
+    --skip-auth) SKIP_AUTH=true ;;
+    --skip-verify) SKIP_VERIFY=true ;;
+    --force) VERIFY_FORCE=true ;;
+    *) INSTALL_ARGS+=("$1") ;;
   esac
   shift
 done

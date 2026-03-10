@@ -24,7 +24,7 @@ while [[ $# -gt 0 ]]; do
       PLAN_FILE="${1#*=}"
       shift
       ;;
-    -m|--milestone)
+    -m | --milestone)
       MILESTONE="${2:?Missing value for --milestone}"
       shift 2
       ;;
@@ -32,11 +32,11 @@ while [[ $# -gt 0 ]]; do
       MILESTONE="${1#*=}"
       shift
       ;;
-    -f|--force)
+    -f | --force)
       FORCE=1
       shift
       ;;
-    -h|--help)
+    -h | --help)
       echo "Usage: $0 [--plan FILE] [--milestone N | -m N] [--force]"
       echo "  Reset completed tasks [x] to [ ] in a plan file."
       echo "  --plan FILE    Plan file (default: ./PLAN.md)"
@@ -91,7 +91,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   else
     echo "$line"
   fi
-done < "$PLAN_FILE" > "$TMP_FILE"
+done <"$PLAN_FILE" >"$TMP_FILE"
 
 if [[ -z "$FORCE" ]]; then
   cp "$PLAN_FILE" "${PLAN_FILE}.bak"

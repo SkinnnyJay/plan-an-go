@@ -51,7 +51,7 @@ if [ ! -s "$PLAN_FILE" ]; then
   exit 1
 fi
 
-echo -e "${GREEN}1. Plan file found ($(wc -c < "$PLAN_FILE" | tr -d ' ') bytes)${RESET}"
+echo -e "${GREEN}1. Plan file found ($(wc -c <"$PLAN_FILE" | tr -d ' ') bytes)${RESET}"
 if ! grep -q 'plan_meta_data' "$PLAN_FILE" 2>/dev/null && ! grep -q '```json metadata' "$PLAN_FILE" 2>/dev/null; then
   echo -e "${YELLOW}   WARN: No plan-an-go metadata block (<!-- ... plan_meta_data ... -->). Consider regenerating with the planner for traceability.${RESET}"
 fi
@@ -80,7 +80,7 @@ CHECK_FILE="$PLAN_FILE"
 if [ -f "$WORK_EXTRACT" ] && grep -q '<work>' "$PLAN_FILE" 2>/dev/null && grep -q '</work>' "$PLAN_FILE" 2>/dev/null; then
   CHECK_FILE=$(mktemp)
   trap 'rm -f "$CHECK_FILE"' EXIT
-  bash "$WORK_EXTRACT" extract "$PLAN_FILE" > "$CHECK_FILE"
+  bash "$WORK_EXTRACT" extract "$PLAN_FILE" >"$CHECK_FILE"
 fi
 
 #═══════════════════════════════════════════════════════════════════════════════
@@ -113,7 +113,7 @@ while IFS= read -r line; do
     total_tasks=$((total_tasks + 1))
     [[ "$line" =~ M[0-9]+:[0-9]+\.[0-9]+ ]] && total_subtasks=$((total_subtasks + 1))
   fi
-done <<< "$task_lines"
+done <<<"$task_lines"
 
 echo -e "${BOLD}2. Counts${RESET}"
 echo "   Milestones:  $total_milestones"

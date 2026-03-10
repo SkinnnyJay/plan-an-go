@@ -104,7 +104,7 @@ for arg in "$@"; do
       QUIET=true
       ;;
     --no-color)
-      USE_COLOR=false
+      export USE_COLOR=false
       ;;
     --highlight-agents)
       HIGHLIGHT_AGENTS=true
@@ -112,8 +112,7 @@ for arg in "$@"; do
     --output-type=*)
       OUTPUT_TYPE="${arg#*=}"
       ;;
-    --output-type)
-      ;;
+    --output-type) ;;
     --concurrency=*)
       CONCURRENCY="${arg#*=}"
       ;;
@@ -132,7 +131,7 @@ for arg in "$@"; do
     --no-validate)
       SKIP_VALIDATION=true
       ;;
-    --no-threads|--no-thread|--simple-slack)
+    --no-threads | --no-thread | --simple-slack)
       SLACK_USE_THREADS=false
       THREADS_SET_BY_ARG=true
       ;;
@@ -198,7 +197,7 @@ for arg in "$@"; do
         # Only collect as positional if it looks like a number (avoid --typo as loop count)
         case "$arg" in
           --*) ;;
-          *)   POSITIONAL_ARGS+=("$arg") ;;
+          *) POSITIONAL_ARGS+=("$arg") ;;
         esac
       fi
       ;;
@@ -213,7 +212,7 @@ clean_workspace_after_exit() {
   SCRIPT_REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
   # Only clean when REPO_ROOT is a subdirectory of script repo (not repo root itself)
   case "$REPO_ROOT" in
-    "$SCRIPT_REPO_ROOT") return 0 ;;  # do not clean repo root
+    "$SCRIPT_REPO_ROOT") return 0 ;; # do not clean repo root
     "$SCRIPT_REPO_ROOT"/*) ;;
     *) return 0 ;;
   esac
@@ -226,17 +225,17 @@ clean_workspace_after_exit() {
 # Resolve CLI flags: use PLAN_AN_GO_CLI_FLAGS if set, else per-CLI vars
 if [ -z "$CLI_FLAGS" ]; then
   case "$CLI_BIN" in
-    claude)         CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
-    cline)          CLI_FLAGS="${PLAN_AN_GO_CLINE_FLAGS:-}" ;;
-    codex)          CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
-    copilot)        CLI_FLAGS="${PLAN_AN_GO_COPILOT_FLAGS:-}" ;;
-    cursor-agent)   CLI_FLAGS="${PLAN_AN_GO_CURSOR_AGENT_FLAGS:-}" ;;
-    droid)          CLI_FLAGS="${PLAN_AN_GO_DROID_FLAGS:-}" ;;
-    gemini)         CLI_FLAGS="${PLAN_AN_GO_GEMINI_FLAGS:-}" ;;
-    goose)          CLI_FLAGS="${PLAN_AN_GO_GOOSE_FLAGS:-}" ;;
-    kiro)           CLI_FLAGS="${PLAN_AN_GO_KIRO_FLAGS:-}" ;;
-    opencode)       CLI_FLAGS="${PLAN_AN_GO_OPENCODE_FLAGS:-}" ;;
-    *)              CLI_FLAGS="" ;;
+    claude) CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
+    cline) CLI_FLAGS="${PLAN_AN_GO_CLINE_FLAGS:-}" ;;
+    codex) CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
+    copilot) CLI_FLAGS="${PLAN_AN_GO_COPILOT_FLAGS:-}" ;;
+    cursor-agent) CLI_FLAGS="${PLAN_AN_GO_CURSOR_AGENT_FLAGS:-}" ;;
+    droid) CLI_FLAGS="${PLAN_AN_GO_DROID_FLAGS:-}" ;;
+    gemini) CLI_FLAGS="${PLAN_AN_GO_GEMINI_FLAGS:-}" ;;
+    goose) CLI_FLAGS="${PLAN_AN_GO_GOOSE_FLAGS:-}" ;;
+    kiro) CLI_FLAGS="${PLAN_AN_GO_KIRO_FLAGS:-}" ;;
+    opencode) CLI_FLAGS="${PLAN_AN_GO_OPENCODE_FLAGS:-}" ;;
+    *) CLI_FLAGS="" ;;
   esac
 fi
 
@@ -324,19 +323,19 @@ PROGRESS_FILE="$TMP_DIR/progress.log"
 # parent repo's .git and may fail (sandbox or permissions). Tell the implementer to skip commit.
 SCRIPT_REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 case "$REPO_ROOT" in
-  "$SCRIPT_REPO_ROOT"/tmp|"$SCRIPT_REPO_ROOT"/tmp/*) export PLAN_AN_GO_SKIP_COMMIT=true ;;
+  "$SCRIPT_REPO_ROOT"/tmp | "$SCRIPT_REPO_ROOT"/tmp/*) export PLAN_AN_GO_SKIP_COMMIT=true ;;
   *) unset -v PLAN_AN_GO_SKIP_COMMIT 2>/dev/null || true ;;
 esac
 
 # Display paths: relative when under REPO_ROOT for cleaner output
 DISPLAY_PLAN="$PLAN_FILE"
 DISPLAY_LOG="$LOG_FILE"
-case "$PLAN_FILE" in "$REPO_ROOT"/*) DISPLAY_PLAN="./${PLAN_FILE#$REPO_ROOT/}"; esac
-case "$LOG_FILE" in "$REPO_ROOT"/*) DISPLAY_LOG="./${LOG_FILE#$REPO_ROOT/}"; esac
+case "$PLAN_FILE" in "$REPO_ROOT"/*) DISPLAY_PLAN="./${PLAN_FILE#"$REPO_ROOT"/}" ;; esac
+case "$LOG_FILE" in "$REPO_ROOT"/*) DISPLAY_LOG="./${LOG_FILE#"$REPO_ROOT"/}" ;; esac
 
 # Validate CLI selection first (fail fast before plan file resolution)
 case "$CLI_BIN" in
-  claude|cline|copilot|codex|cursor-agent|droid|gemini|goose|kiro|opencode) ;;
+  claude | cline | copilot | codex | cursor-agent | droid | gemini | goose | kiro | opencode) ;;
   *)
     echo "❌ ERROR: --cli must be 'claude', 'cline', 'copilot', 'codex', 'cursor-agent', 'droid', 'gemini', 'goose', 'kiro', or 'opencode' (got: $CLI_BIN)" >&2
     exit 1
@@ -432,7 +431,7 @@ if [ ! -f "$PLAN_FILE" ]; then
   echo "❌ ERROR: Plan file not found: $PLAN_FILE" >&2
   echo "" >&2
   echo "Available plan files:" >&2
-  (cd "$REPO_ROOT" && ls -la *.md 2>/dev/null | head -5) >&2 || echo "  (none found)" >&2
+  (cd "$REPO_ROOT" && find . -maxdepth 1 -name '*.md' -exec ls -ld {} \; 2>/dev/null | head -5) >&2 || echo "  (none found)" >&2
   echo "" >&2
   echo "Usage: $0 [loops] [child_loops] [--workspace DIR] [--plan=<filename>] [--clean-after] [--force]" >&2
   exit 1
@@ -461,26 +460,26 @@ if [ "$WORK_COMPLIANT" = "false" ]; then
   fi
   echo "" >&2
 fi
-[ "$STRICT_WORK" = "true" ] && export PLAN_AN_GO_STRICT=true || export PLAN_AN_GO_STRICT=false
+if [ "$STRICT_WORK" = "true" ]; then export PLAN_AN_GO_STRICT=true; else export PLAN_AN_GO_STRICT=false; fi
 
 # Ensure progress log exists under tmp
 if [ ! -f "$PROGRESS_FILE" ]; then
-  echo "# Progress Log - $(date '+%Y-%m-%d %H:%M:%S')" > "$PROGRESS_FILE"
+  echo "# Progress Log - $(date '+%Y-%m-%d %H:%M:%S')" >"$PROGRESS_FILE"
 fi
 
 # Validate selected CLI is available
-if ! command -v "$CLI_BIN" &> /dev/null; then
+if ! command -v "$CLI_BIN" &>/dev/null; then
   echo "❌ ERROR: '$CLI_BIN' CLI not found in PATH" >&2
   case "$CLI_BIN" in
-    claude)   echo "Install: https://docs.anthropic.com/claude/docs/claude-cli" >&2 ;;
-    cline)   echo "Install: https://docs.cline.bot/cline-cli/getting-started" >&2 ;;
+    claude) echo "Install: https://docs.anthropic.com/claude/docs/claude-cli" >&2 ;;
+    cline) echo "Install: https://docs.cline.bot/cline-cli/getting-started" >&2 ;;
     copilot) echo "Install: https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-in-the-cli" >&2 ;;
-    droid)   echo "Install: https://app.factory.ai/cli" >&2 ;;
-    gemini)   echo "Install: https://github.com/google-gemini/gemini-cli" >&2 ;;
-    goose)   echo "Install: https://github.com/block/goose" >&2 ;;
-    kiro)    echo "Install: https://cli.kiro.dev/" >&2 ;;
+    droid) echo "Install: https://app.factory.ai/cli" >&2 ;;
+    gemini) echo "Install: https://github.com/google-gemini/gemini-cli" >&2 ;;
+    goose) echo "Install: https://github.com/block/goose" >&2 ;;
+    kiro) echo "Install: https://cli.kiro.dev/" >&2 ;;
     opencode) echo "Install: https://github.com/opencode-ai/opencode" >&2 ;;
-    *)       ;;
+    *) ;;
   esac
   exit 1
 fi
@@ -502,7 +501,7 @@ fi
 iteration=0
 start_time=$(date +%s)
 STOP_REQUESTED=false
-PIPELINE_THREAD_TS=""  # Single thread for entire pipeline run
+PIPELINE_THREAD_TS="" # Single thread for entire pipeline run
 
 # Load Slack helpers from repo root (or scripts/ if placed there) only when Slack is enabled
 if [ "$USE_SLACK" = "true" ]; then
@@ -520,10 +519,16 @@ post_slack_message() {
   local thread_ts="${2:-}"
   local err
 
-  if [ "$SLACK_USE_THREADS" = "true" ] && [ -n "$thread_ts" ] && command -v post_to_slack_thread &> /dev/null; then
-    err=$(post_to_slack_thread "$message" "$thread_ts" 2>&1) || { echo "⚠️  Slack post failed: $err" >&2; return 0; }
-  elif command -v post_to_slack &> /dev/null; then
-    err=$(post_to_slack "$message" 2>&1) || { echo "⚠️  Slack post failed: $err" >&2; return 0; }
+  if [ "$SLACK_USE_THREADS" = "true" ] && [ -n "$thread_ts" ] && command -v post_to_slack_thread &>/dev/null; then
+    err=$(post_to_slack_thread "$message" "$thread_ts" 2>&1) || {
+      echo "⚠️  Slack post failed: $err" >&2
+      return 0
+    }
+  elif command -v post_to_slack &>/dev/null; then
+    err=$(post_to_slack "$message" 2>&1) || {
+      echo "⚠️  Slack post failed: $err" >&2
+      return 0
+    }
   fi
 }
 
@@ -643,7 +648,7 @@ get_work_section_bounds() {
   local f="${1:-}"
   [ ! -f "$f" ] && echo "1 1" && return
   local last_line
-  last_line=$(wc -l < "$f" 2>/dev/null | tr -d ' ')
+  last_line=$(wc -l <"$f" 2>/dev/null | tr -d ' ')
   [ -z "$last_line" ] && last_line=1
   local script="${SCRIPT_DIR:-.}/scripts/plan-work-section.sh"
   if [ -f "$script" ]; then
@@ -668,7 +673,7 @@ build_work_bounds_awk_condition() {
 # Only counts task lines inside <work>...</work> when present.
 verify_plan_completion() {
   local plan_file="${1:-PLAN.md}"
-  
+
   if [ ! -f "$plan_file" ]; then
     echo "PLAN_NOT_FOUND"
     return 1
@@ -677,7 +682,7 @@ verify_plan_completion() {
   local work_bounds work_awk_cond
   work_bounds=$(get_work_section_bounds "$plan_file")
   work_awk_cond=$(build_work_bounds_awk_condition "$work_bounds")
-  
+
   # Count only lines inside work section(s); task lines: "[ ] - M<n>:..." or "[  ] - M<n>:..." or template
   local template_incomplete
   template_incomplete=$(grep -n '^\- \[ \] \*\*' "$plan_file" 2>/dev/null | awk "$work_awk_cond" | wc -l | tr -d ' ')
@@ -686,25 +691,25 @@ verify_plan_completion() {
   bracket_incomplete=$(grep -n -E '^\[ \] - M[0-9]+:|^\[  \] - M[0-9]+:' "$plan_file" 2>/dev/null | awk "$work_awk_cond" | wc -l | tr -d ' ')
   bracket_incomplete=${bracket_incomplete:-0}
   local all_incomplete=$((template_incomplete + bracket_incomplete))
-  
+
   local check_tasks
   check_tasks=$(grep -n '^\- \[ \] \*\*CHECK\.' "$plan_file" 2>/dev/null | awk "$work_awk_cond" | wc -l | tr -d ' ')
   check_tasks=${check_tasks:-0}
-  
+
   local ui_incomplete
   ui_incomplete=$(grep -n '^\- \[x\] \[UI\]' "$plan_file" 2>/dev/null | awk "$work_awk_cond" | wc -l | tr -d ' ')
   ui_incomplete=${ui_incomplete:-0}
-  
+
   local func_incomplete
   func_incomplete=$(grep -n '^\- \[x\] \[FUNCTIONAL\]' "$plan_file" 2>/dev/null | awk "$work_awk_cond" | wc -l | tr -d ' ')
   func_incomplete=${func_incomplete:-0}
-  
+
   # Implementation tasks = all incomplete minus CHECK tasks
   local impl_incomplete=$((all_incomplete - check_tasks))
-  
+
   # Total truly incomplete = implementation tasks + [UI]/[FUNCTIONAL] tagged tasks
   local total_incomplete=$((impl_incomplete + ui_incomplete + func_incomplete))
-  
+
   if [ "$total_incomplete" -eq 0 ]; then
     echo "COMPLETE"
   else
@@ -719,7 +724,7 @@ ensure_plan_trailing_newline() {
   case "$(tail -c1 "$f" 2>/dev/null)" in
     '') return 0 ;;
     $'\n') return 0 ;;
-    *) echo >> "$f" ;;
+    *) echo >>"$f" ;;
   esac
 }
 
@@ -727,7 +732,7 @@ ensure_plan_trailing_newline() {
 strip_in_progress_from_file() {
   local f="${1:-$PLAN_FILE}"
   [ ! -f "$f" ] && return 0
-  sed -e 's/ \[IN_PROGRESS\]:\[AGENT_[0-9]*\]//g' -e 's/ \[IN_PROGRESS\]//g' "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+  sed -e 's/ \[IN_PROGRESS\]:\[AGENT_[0-9]*\]//g' -e 's/ \[IN_PROGRESS\]//g' "$f" >"${f}.tmp" && mv "${f}.tmp" "$f"
   ensure_plan_trailing_newline "$f"
 }
 
@@ -736,7 +741,7 @@ strip_in_progress_from_file() {
 strip_in_progress_from_completed_lines() {
   local f="${1:-$PLAN_FILE}"
   [ ! -f "$f" ] && return 0
-  sed -e '/\[x\]/s/ \[IN_PROGRESS\]:\(\[AGENT_[0-9]*\]\)/ \1/g' -e '/\[x\]/s/ \[IN_PROGRESS\]//g' "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+  sed -e '/\[x\]/s/ \[IN_PROGRESS\]:\(\[AGENT_[0-9]*\]\)/ \1/g' -e '/\[x\]/s/ \[IN_PROGRESS\]//g' "$f" >"${f}.tmp" && mv "${f}.tmp" "$f"
   ensure_plan_trailing_newline "$f"
 }
 
@@ -758,12 +763,12 @@ mark_task_complete_from_implementer_output() {
   [ -z "$task_id" ] && return 0
   # Mark the unchecked line that contains this task id (e.g. "[ ] - M1:3- ...") as [x]
   if grep -q "^\[ \] - ${task_id}-" "$f" 2>/dev/null; then
-    sed "s/^\[ \] - ${task_id}-/[x] - ${task_id}-/" "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+    sed "s/^\[ \] - ${task_id}-/[x] - ${task_id}-/" "$f" >"${f}.tmp" && mv "${f}.tmp" "$f"
     ensure_plan_trailing_newline "$f"
     return 0
   fi
   if grep -q "^\[  \] - ${task_id}-" "$f" 2>/dev/null; then
-    sed "s/^\[  \] - ${task_id}-/[x] - ${task_id}-/" "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+    sed "s/^\[  \] - ${task_id}-/[x] - ${task_id}-/" "$f" >"${f}.tmp" && mv "${f}.tmp" "$f"
   fi
   ensure_plan_trailing_newline "$f"
 }
@@ -790,7 +795,7 @@ mark_first_incomplete_in_progress() {
     break
   done < <(grep -n -E '^(\- \[ \] \*\*|\[ \] - M[0-9]+:|\[  \] - M[0-9]+:)' "$f" 2>/dev/null | awk "$work_awk_cond")
   if [ -n "$first_ln" ]; then
-    sed "${first_ln}s/$/ [IN_PROGRESS]/" "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+    sed "${first_ln}s/$/ [IN_PROGRESS]/" "$f" >"${f}.tmp" && mv "${f}.tmp" "$f"
     ensure_plan_trailing_newline "$f"
   fi
 }
@@ -812,7 +817,7 @@ is_task_complete_in_plan() {
   local task_id="$2"
   [ ! -f "$f" ] && return 1
   local tid_esc
-  tid_esc=$(echo "$task_id" | sed 's/\./\\./g')
+  tid_esc="${task_id//./\\.}"
   grep -qE "\[x\].*${tid_esc}-" "$f" 2>/dev/null
 }
 
@@ -845,9 +850,9 @@ mark_next_n_incomplete_in_progress() {
   for ln in "${eligible_lns[@]}"; do
     agent_id=$(printf 'AGENT_%02d' "$idx")
     sed_expr="${sed_expr}${sed_expr:+;}${ln}s/\$/ [IN_PROGRESS]:[${agent_id}]/"
-    idx=$(( idx + 1 ))
+    idx=$((idx + 1))
   done
-  sed "$sed_expr" "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+  sed "$sed_expr" "$f" >"${f}.tmp" && mv "${f}.tmp" "$f"
   ensure_plan_trailing_newline "$f"
 }
 
@@ -870,7 +875,7 @@ mark_one_incomplete_with_agent() {
     if [ -n "$dep" ]; then
       is_task_complete_in_plan "$f" "$dep" || continue
     fi
-    sed "${ln}s/$/ [IN_PROGRESS]:[${agent_id}]/" "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+    sed "${ln}s/$/ [IN_PROGRESS]:[${agent_id}]/" "$f" >"${f}.tmp" && mv "${f}.tmp" "$f"
     ensure_plan_trailing_newline "$f"
     return 0
   done < <(grep -n -E '^(\- \[ \] \*\*|\[ \] - M[0-9]+:|\[  \] - M[0-9]+:)' "$f" 2>/dev/null | awk "$work_awk_cond")
@@ -898,7 +903,10 @@ wait_pids_multi() {
   start=$(date +%s)
   while true; do
     for p in "${pids[@]}"; do
-      kill -0 "$p" 2>/dev/null && { sleep 0.5; continue 2; }
+      kill -0 "$p" 2>/dev/null && {
+        sleep 0.5
+        continue 2
+      }
     done
     break
   done
@@ -930,19 +938,19 @@ wait_pid_with_stats() {
 extract_summary() {
   local output="$1"
   local agent="$2"
-  local max_chars="${3:-8800}"  # Slack limit is ~4000, leave room for code block wrapper
-  
+  local max_chars="${3:-8800}" # Slack limit is ~4000, leave room for code block wrapper
+
   # Extract content between START and END markers (full report)
   local section
   section=$(echo "$output" | sed -n "/------START: $agent------/,/------END: $agent------/p")
-  
+
   # If section is empty, try to get any meaningful content
   if [ -z "$section" ]; then
     section=$(echo "$output" | head -50)
   fi
-  
+
   # Truncate at character limit, but try to end at a line boundary
-    if [ ${#section} -gt $max_chars ]; then
+  if [ ${#section} -gt "$max_chars" ]; then
     # Cut at max_chars, then find last newline to avoid mid-line cut
     local truncated="${section:0:$max_chars}"
     local last_newline
@@ -956,7 +964,7 @@ extract_summary() {
     section="$section
 ..._(truncated)_"
   fi
-  
+
   echo "$section"
 }
 
@@ -964,10 +972,15 @@ extract_summary() {
 # HEADER
 #═══════════════════════════════════════════════════════════════════════════════
 initial_plan_status=$(verify_plan_completion "$PLAN_FILE")
-PLAN_BYTES=$(wc -c < "$PLAN_FILE" 2>/dev/null | tr -d ' ')
 PLAN_CHECK_SCRIPT="$SCRIPT_DIR/plan-an-go-plan-check.sh"
 header_plan_check=""
-[ -f "$PLAN_CHECK_SCRIPT" ] && header_plan_check=$([ -x "$PLAN_CHECK_SCRIPT" ] && "$PLAN_CHECK_SCRIPT" "$PLAN_FILE" 2>/dev/null || bash "$PLAN_CHECK_SCRIPT" "$PLAN_FILE" 2>/dev/null) || true
+if [ -f "$PLAN_CHECK_SCRIPT" ]; then
+  if [ -x "$PLAN_CHECK_SCRIPT" ]; then
+    header_plan_check=$("$PLAN_CHECK_SCRIPT" "$PLAN_FILE" 2>/dev/null) || true
+  else
+    header_plan_check=$(bash "$PLAN_CHECK_SCRIPT" "$PLAN_FILE" 2>/dev/null) || true
+  fi
+fi
 header_milestones=""
 header_tasks=""
 header_complete=""
@@ -989,11 +1002,11 @@ fi
 # Resolve CLI model for display (Config/Agents block)
 CLI_MODEL_DISPLAY="default"
 case "$CLI_BIN" in
-  claude)  [ -n "${PLAN_AN_GO_CLAUDE_MODEL:-}" ] && CLI_MODEL_DISPLAY="$PLAN_AN_GO_CLAUDE_MODEL" ;;
-  codex)   [ -n "${PLAN_AN_GO_CODEX_MODEL:-}" ] && CLI_MODEL_DISPLAY="$PLAN_AN_GO_CODEX_MODEL" ;;
-  gemini)  [ -n "${PLAN_AN_GO_GEMINI_MODEL:-}" ] && CLI_MODEL_DISPLAY="$PLAN_AN_GO_GEMINI_MODEL" ;;
+  claude) [ -n "${PLAN_AN_GO_CLAUDE_MODEL:-}" ] && CLI_MODEL_DISPLAY="$PLAN_AN_GO_CLAUDE_MODEL" ;;
+  codex) [ -n "${PLAN_AN_GO_CODEX_MODEL:-}" ] && CLI_MODEL_DISPLAY="$PLAN_AN_GO_CODEX_MODEL" ;;
+  gemini) [ -n "${PLAN_AN_GO_GEMINI_MODEL:-}" ] && CLI_MODEL_DISPLAY="$PLAN_AN_GO_GEMINI_MODEL" ;;
   opencode) [ -n "${PLAN_AN_GO_OPENCODE_MODEL:-}" ] && CLI_MODEL_DISPLAY="$PLAN_AN_GO_OPENCODE_MODEL" ;;
-  *)       [ -n "${PLAN_AN_GO_CURSOR_AGENT_MODEL:-}" ] && CLI_MODEL_DISPLAY="$PLAN_AN_GO_CURSOR_AGENT_MODEL" ;;
+  *) [ -n "${PLAN_AN_GO_CURSOR_AGENT_MODEL:-}" ] && CLI_MODEL_DISPLAY="$PLAN_AN_GO_CURSOR_AGENT_MODEL" ;;
 esac
 
 # Print minimal-format header (matches tmp/minimal): version, config, agents, swarm, tasks summary, task table.
@@ -1075,7 +1088,7 @@ fi
 
 # Create single parent thread for entire pipeline (if Slack enabled and threading enabled)
 if [ "$USE_SLACK" = "true" ]; then
-  if [ "$SLACK_USE_THREADS" = "true" ] && command -v post_to_slack_get_ts &> /dev/null; then
+  if [ "$SLACK_USE_THREADS" = "true" ] && command -v post_to_slack_get_ts &>/dev/null; then
     PIPELINE_THREAD_TS=$(post_to_slack_get_ts "🚀 *Plan-an-go Pipeline Started* | Parent: $MAX_ITERATIONS | Child: $MAX_CHILD_LOOPS" 2>/dev/null) || true
     if [ -n "$PIPELINE_THREAD_TS" ]; then
       echo "🧵 Slack pipeline thread created: $PIPELINE_THREAD_TS"
@@ -1098,10 +1111,10 @@ if [ "$iteration" -ge "$MAX_ITERATIONS" ]; then
   $SCRIPT_EXIT 1
 fi
 
-while [ $iteration -lt $MAX_ITERATIONS ]; do
+while [ "$iteration" -lt "$MAX_ITERATIONS" ]; do
   iteration=$((iteration + 1))
   iter_start=$(date +%s)
-  
+
   [ "$QUIET" != "true" ] && echo ""
   [ "$QUIET" != "true" ] && echo "--- Iteration $iteration/$MAX_ITERATIONS ($(date '+%Y-%m-%d %H:%M:%S')) ---"
 
@@ -1111,18 +1124,20 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
   IMPL_OUTPUT_SHOWN=false
   VAL_OUTPUT_SHOWN=false
   if [ -n "$TAIL_LOG" ]; then
-    echo "═══════════════════════════════════════════════════════════════════════════════" > "$TAIL_LOG"
-    echo "ITERATION $iteration of $MAX_ITERATIONS — $(date '+%Y-%m-%d %H:%M:%S')" >> "$TAIL_LOG"
-    echo "═══════════════════════════════════════════════════════════════════════════════" >> "$TAIL_LOG"
-    echo "" >> "$TAIL_LOG"
-    echo "--- IMPLEMENTER ---" >> "$TAIL_LOG"
-    echo "" >> "$TAIL_LOG"
+    {
+      echo "═══════════════════════════════════════════════════════════════════════════════"
+      echo "ITERATION $iteration of $MAX_ITERATIONS — $(date '+%Y-%m-%d %H:%M:%S')"
+      echo "═══════════════════════════════════════════════════════════════════════════════"
+      echo ""
+      echo "--- IMPLEMENTER ---"
+      echo ""
+    } >"$TAIL_LOG"
   fi
   #─────────────────────────────────────────────────────────────────────────────
   # SLACK: Post iteration start to thread
   #─────────────────────────────────────────────────────────────────────────────
   post_slack_message "🔄 *Iteration $iteration of $MAX_ITERATIONS*" "$PIPELINE_THREAD_TS"
-  
+
   #─────────────────────────────────────────────────────────────────────────────
   # PLAN FILE: Mark incomplete task(s) for implementer(s)
   #─────────────────────────────────────────────────────────────────────────────
@@ -1133,7 +1148,7 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
     mark_next_n_incomplete_in_progress "$PLAN_FILE" "$CONCURRENCY"
   fi
   # When CONCURRENCY > 1 and pool mode (WAIT_FOR_ALL=false), tasks are assigned in the pool loop below.
-  
+
   #─────────────────────────────────────────────────────────────────────────────
   # Plan status: minimal format (Counts, Completion, then In Progress block)
   #─────────────────────────────────────────────────────────────────────────────
@@ -1212,9 +1227,12 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
         impl_exit=${PIPESTATUS[0]}
         IMPL_OUTPUT_SHOWN=true
       else
-        PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS "$IMPL_SCRIPT" > "$impl_output" 2>&1 &
+        PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS "$IMPL_SCRIPT" >"$impl_output" 2>&1 &
         impl_pid=$!
-        if [ "$QUIET" = "true" ]; then wait $impl_pid; else wait_pid_with_stats $impl_pid "Implementer working"; wait $impl_pid; fi
+        if [ "$QUIET" = "true" ]; then wait $impl_pid; else
+          wait_pid_with_stats $impl_pid "Implementer working"
+          wait $impl_pid
+        fi
         impl_exit=$?
       fi
     fi
@@ -1228,7 +1246,7 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
         agent_id=$(printf 'AGENT_%02d' "$i")
         out_f=$(mktemp "$TMP_DIR/forever-agent.XXXXXX")
         impl_outputs+=("$out_f")
-        PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS PLAN_AN_GO_AGENT_ID="$agent_id" "$IMPL_SCRIPT" > "$out_f" 2>&1 &
+        PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS PLAN_AN_GO_AGENT_ID="$agent_id" "$IMPL_SCRIPT" >"$out_f" 2>&1 &
         impl_pids+=($!)
       done
       impl_exit=0
@@ -1241,12 +1259,12 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
       for f in "${impl_outputs[@]}"; do
         [ -f "$f" ] && mark_task_complete_from_implementer_output "$f" "$PLAN_FILE"
       done
-      cat "${impl_outputs[@]}" > "$impl_output" 2>/dev/null || true
+      cat "${impl_outputs[@]}" >"$impl_output" 2>/dev/null || true
       rm -f "${impl_outputs[@]}"
     else
       # Pool mode (default): when an agent finishes it immediately takes the next task until no work left.
       strip_in_progress_from_file "$PLAN_FILE"
-      > "$impl_output"
+      : >"$impl_output"
       impl_exit=0
       slot_pid=()
       slot_out=()
@@ -1254,16 +1272,16 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
       pool_completed=$(mktemp "$TMP_DIR/forever-pool-completed.XXXXXX")
       for idx in $(seq 0 $((CONCURRENCY - 1))); do
         agent_id=$(printf 'AGENT_%02d' "$((idx + 1))")
-        slot_last_cpu[$idx]="0"
-        slot_last_rss_mb[$idx]=0
+        slot_last_cpu[idx]="0"
+        slot_last_rss_mb[idx]=0
         if mark_one_incomplete_with_agent "$PLAN_FILE" "$agent_id"; then
           out_f=$(mktemp "$TMP_DIR/forever-agent.XXXXXX")
-          slot_out[$idx]="$out_f"
-          PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS PLAN_AN_GO_AGENT_ID="$agent_id" "$IMPL_SCRIPT" > "$out_f" 2>&1 &
-          slot_pid[$idx]=$!
+          slot_out[idx]="$out_f"
+          PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS PLAN_AN_GO_AGENT_ID="$agent_id" "$IMPL_SCRIPT" >"$out_f" 2>&1 &
+          slot_pid[idx]=$!
         else
-          slot_pid[$idx]=""
-          slot_out[$idx]=""
+          slot_pid[idx]=""
+          slot_out[idx]=""
         fi
       done
       any_running() {
@@ -1284,20 +1302,20 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
             task_line=$(get_agent_task_line "$PLAN_FILE" "$agent_id" "$work_awk_cond")
             completed_cpu="${slot_last_cpu[$j]:-0}"
             completed_rss="${slot_last_rss_mb[$j]:-0}"
-            printf "%s\t%s\t%s\t%s\n" "$agent_id" "$completed_cpu" "$completed_rss" "$task_line" >> "$pool_completed"
+            printf "%s\t%s\t%s\t%s\n" "$agent_id" "$completed_cpu" "$completed_rss" "$task_line" >>"$pool_completed"
             slot_exit=0
             wait "${slot_pid[$j]}" 2>/dev/null || slot_exit=$?
-            [ $slot_exit -ne 0 ] && impl_exit=$slot_exit
+            [ "$slot_exit" -ne 0 ] && impl_exit=$slot_exit
             [ -f "${slot_out[$j]:-}" ] && mark_task_complete_from_implementer_output "${slot_out[$j]}" "$PLAN_FILE"
-            [ -f "${slot_out[$j]:-}" ] && cat "${slot_out[$j]}" >> "$impl_output"
+            [ -f "${slot_out[$j]:-}" ] && cat "${slot_out[$j]}" >>"$impl_output"
             strip_in_progress_from_completed_lines "$PLAN_FILE"
-            slot_pid[$j]=""
+            slot_pid[j]=""
             agent_id=$(printf 'AGENT_%02d' "$((j + 1))")
             if mark_one_incomplete_with_agent "$PLAN_FILE" "$agent_id"; then
               out_f=$(mktemp "$TMP_DIR/forever-agent.XXXXXX")
-              slot_out[$j]="$out_f"
-              PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS PLAN_AN_GO_AGENT_ID="$agent_id" "$IMPL_SCRIPT" > "$out_f" 2>&1 &
-              slot_pid[$j]=$!
+              slot_out[j]="$out_f"
+              PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS PLAN_AN_GO_AGENT_ID="$agent_id" "$IMPL_SCRIPT" >"$out_f" 2>&1 &
+              slot_pid[j]=$!
             fi
             found=1
             break
@@ -1319,8 +1337,8 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
               cpu="${stats%% *}"
               rss_mb=0
               [ "${stats#* }" != "$stats" ] && rss_mb=$((${stats#* } / 1024))
-              slot_last_cpu[$j]="$cpu"
-              slot_last_rss_mb[$j]=$rss_mb
+              slot_last_cpu[j]="$cpu"
+              slot_last_rss_mb[j]=$rss_mb
               task_line=$(get_agent_task_line "$PLAN_FILE" "$agent_id" "$work_awk_cond")
               printf "%s[IN_PROGRESS]:[%s]%s · CPU %s%% · %d MB\n" "$ac" "$agent_id" "$RESET" "$cpu" "$rss_mb" >&2
               if [ -n "$task_line" ]; then
@@ -1351,7 +1369,7 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
             printf "    - Task: ✓ %s\n" "$task_line" >&2
           fi
           echo "+----------+-----+---------------------------------------------------------+" >&2
-        done < "$pool_completed"
+        done <"$pool_completed"
       fi
       [ -f "$pool_completed" ] && rm -f "$pool_completed"
       for idx in $(seq 0 $((CONCURRENCY - 1))); do
@@ -1359,13 +1377,13 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
       done
     fi
   fi
-  
+
   impl_result=$(cat "$impl_output")
-  
+
   # Check for critical failures that should stop the pipeline
   IMPL_FAILED=false
   IMPL_FAIL_REASON=""
-  
+
   if echo "$impl_result" | grep -q "Credit balance is too low"; then
     IMPL_FAILED=true
     IMPL_FAIL_REASON="CREDITS_EXHAUSTED"
@@ -1378,48 +1396,52 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
   elif echo "$impl_result" | grep -q "VERDICT: FAILED"; then
     IMPL_FAILED=true
     IMPL_FAIL_REASON="VALIDATION_FAILED"
-  elif [ $impl_exit -ne 0 ]; then
+  elif [ "$impl_exit" -ne 0 ]; then
     IMPL_FAILED=true
     IMPL_FAIL_REASON="EXIT_CODE_$impl_exit"
   fi
-  
+
   if [ "$IMPL_FAILED" = "true" ]; then
     echo ""
     echo "Implementer failed ($IMPL_FAIL_REASON). First 10 lines:"
     echo "$impl_result" | head -10 | sed 's/^/  /'
     echo "Full output: $DISPLAY_LOG"
     echo ""
-    echo "" >> "$LOG_FILE"
-    echo "═══════════════════════════════════════════════════════════════════════════════" >> "$LOG_FILE"
-    echo "ITERATION $iteration - FAILED ($IMPL_FAIL_REASON)" >> "$LOG_FILE"
-    echo "═══════════════════════════════════════════════════════════════════════════════" >> "$LOG_FILE"
-    echo "$impl_result" >> "$LOG_FILE"
+    {
+      echo ""
+      echo "═══════════════════════════════════════════════════════════════════════════════"
+      echo "ITERATION $iteration - FAILED ($IMPL_FAIL_REASON)"
+      echo "═══════════════════════════════════════════════════════════════════════════════"
+      echo "$impl_result"
+    } >>"$LOG_FILE"
     post_slack_message "❌ *IMPLEMENTER FAILED* - $IMPL_FAIL_REASON at iteration $iteration" "$PIPELINE_THREAD_TS"
     rm -f "$impl_output" "$val_output"
     play_sound_fail
     $SCRIPT_EXIT 1
   fi
-  
+
   if [ "$CONCURRENCY" -eq 1 ]; then
     mark_task_complete_from_implementer_output "$impl_output" "$PLAN_FILE"
   fi
   strip_in_progress_from_completed_lines "$PLAN_FILE"
-  
-  echo "" >> "$LOG_FILE"
-  echo "═══════════════════════════════════════════════════════════════════════════════" >> "$LOG_FILE"
-  echo "ITERATION $iteration - $(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
-  echo "═══════════════════════════════════════════════════════════════════════════════" >> "$LOG_FILE"
-  echo "" >> "$LOG_FILE"
-  echo "$impl_result" >> "$LOG_FILE"
-  
+
+  {
+    echo ""
+    echo "═══════════════════════════════════════════════════════════════════════════════"
+    echo "ITERATION $iteration - $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "═══════════════════════════════════════════════════════════════════════════════"
+    echo ""
+    echo "$impl_result"
+  } >>"$LOG_FILE"
+
   if [ "$STREAM_OUTPUT" != "true" ] && [ "$QUIET" != "true" ] && [ "$IMPL_OUTPUT_SHOWN" != "true" ]; then
     echo ""
     echo "$impl_result"
   fi
-  
+
   impl_summary=$(extract_summary "$impl_result" "IMPLEMENTER")
   impl_summary=$(printf '%s' "$impl_summary" | tr -d '`')
-  impl_slack_msg=$(printf '📝 *IMPLEMENTER*\n```\n%s\n```' "$impl_summary")
+  impl_slack_msg=$(printf "📝 *IMPLEMENTER*\n\`\`\`\n%s\n\`\`\`" "$impl_summary")
   post_slack_message "$impl_slack_msg" "$PIPELINE_THREAD_TS"
   post_slack_error_alert_if_needed "$impl_result" "Implementer"
 
@@ -1432,9 +1454,11 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
     val_exit=0
   else
     if [ -n "$TAIL_LOG" ]; then
-      echo "" >> "$TAIL_LOG"
-      echo "--- VALIDATOR ---" >> "$TAIL_LOG"
-      echo "" >> "$TAIL_LOG"
+      {
+        echo ""
+        echo "--- VALIDATOR ---"
+        echo ""
+      } >>"$TAIL_LOG"
     fi
     [ "$VERBOSE" = "true" ] && echo "Validator: running..."
     if [ "$STREAM_OUTPUT" = "true" ]; then
@@ -1454,15 +1478,18 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
         val_exit=${PIPESTATUS[0]}
         VAL_OUTPUT_SHOWN=true
       else
-        PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS "$VAL_SCRIPT" "$impl_output" > "$val_output" 2>&1 &
+        PLAN_FILE=$PLAN_FILE MAX_CHILD_LOOPS=$MAX_CHILD_LOOPS "$VAL_SCRIPT" "$impl_output" >"$val_output" 2>&1 &
         val_pid=$!
-        if [ "$QUIET" = "true" ]; then wait $val_pid; else wait_pid_with_stats $val_pid "Validator auditing"; wait $val_pid; fi
+        if [ "$QUIET" = "true" ]; then wait $val_pid; else
+          wait_pid_with_stats $val_pid "Validator auditing"
+          wait $val_pid
+        fi
         val_exit=$?
       fi
     fi
-    
+
     val_result=$(cat "$val_output")
-    
+
     # Check for credit exhaustion
     if echo "$val_result" | grep -q "Credit balance is too low"; then
       echo ""
@@ -1470,41 +1497,41 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
       echo "  Log: $DISPLAY_LOG"
       # Post to Slack
       post_slack_message "❌ *CREDITS EXHAUSTED* - Pipeline stopped at iteration $iteration" "$PIPELINE_THREAD_TS"
-      
+
       rm -f "$impl_output" "$val_output"
       play_sound_fail
       $SCRIPT_EXIT 1
     fi
-    
+
     # Log to file
-    echo "" >> "$LOG_FILE"
-    echo "$val_result" >> "$LOG_FILE"
-    
+    echo "" >>"$LOG_FILE"
+    echo "$val_result" >>"$LOG_FILE"
+
     # Display (only if not already shown via --tail or --stream)
     if [ "$STREAM_OUTPUT" != "true" ] && [ "$QUIET" != "true" ] && [ "$VAL_OUTPUT_SHOWN" != "true" ]; then
       echo ""
       echo "$val_result"
     fi
-    
+
     # Slack: Post validator update to thread (wrapped in code block)
     val_summary=$(extract_summary "$val_result" "VALIDATOR")
     # Remove all backticks to prevent breaking the Slack code block
     val_summary=$(printf '%s' "$val_summary" | tr -d '`')
-    val_slack_msg=$(printf '🔍 *VALIDATOR*\n```\n%s\n```' "$val_summary")
+    val_slack_msg=$(printf "🔍 *VALIDATOR*\n\`\`\`\n%s\n\`\`\`" "$val_summary")
     post_slack_message "$val_slack_msg" "$PIPELINE_THREAD_TS"
     post_slack_error_alert_if_needed "$val_result" "Validator"
 
     # Check for errors
-    if [ $val_exit -ne 0 ]; then
+    if [ "$val_exit" -ne 0 ]; then
       echo "Validator failed (exit $val_exit). Continuing in 5s..."
       post_slack_message "❌ Validator failed (exit: $val_exit)" "$PIPELINE_THREAD_TS"
-      
+
       rm -f "$impl_output" "$val_output"
       sleep 5
       continue
     fi
   fi
-  
+
   #─────────────────────────────────────────────────────────────────────────────
   # STAGE 3: PROCESS RESULTS
   #─────────────────────────────────────────────────────────────────────────────
@@ -1558,7 +1585,7 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
       fi
     fi
   fi
-  
+
   # Play sound: fail when validator reverted or task failed, else task-complete
   if [ "$verdict" = "FAILED" ] || [ "$verdict" = "REVERTED" ]; then
     play_sound_fail
@@ -1579,10 +1606,10 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
 • Duration: $(format_duration $iter_duration)
 • ETA: $(format_duration $eta)"
 
-    if [ "$SLACK_USE_THREADS" = "true" ] && [ -n "$PIPELINE_THREAD_TS" ] && command -v post_to_slack_thread &> /dev/null; then
+    if [ "$SLACK_USE_THREADS" = "true" ] && [ -n "$PIPELINE_THREAD_TS" ] && command -v post_to_slack_thread &>/dev/null; then
       # Post summary as thread reply
       post_to_slack_thread "$summary_msg" "$PIPELINE_THREAD_TS" 2>/dev/null || true
-    elif [ "$SLACK_USE_THREADS" != "true" ] && command -v post_to_slack &> /dev/null; then
+    elif [ "$SLACK_USE_THREADS" != "true" ] && command -v post_to_slack &>/dev/null; then
       # Single combined message (non-threaded mode)
       # First iteration: include pipeline started header
       if [ "$iteration" -eq 1 ]; then
@@ -1597,7 +1624,7 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
       impl_code=$(printf '%s' "$impl_code" | tr -d '`')
       val_code=$(printf '%s' "$val_code" | tr -d '`')
 
-      combined_msg=$(printf '%s\n\n%s\n\n*Implementer:*\n```\n%s\n```\n\n*Validator:*\n```\n%s\n```' \
+      combined_msg=$(printf "%s\n\n%s\n\n*Implementer:*\n\`\`\`\n%s\n\`\`\`\n\n*Validator:*\n\`\`\`\n%s\n\`\`\`" \
         "$header" "$summary_msg" "$impl_code" "$val_code")
 
       # Truncate if too long
@@ -1608,13 +1635,13 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
       post_to_slack "$combined_msg" 2>/dev/null || true
     fi
   fi
-  
+
   # Clean up temp files
   rm -f "$impl_output" "$val_output"
-  
+
   # Remove [IN_PROGRESS] from any task line that was marked complete ([x])
   strip_in_progress_from_completed_lines "$PLAN_FILE"
-  
+
   #─────────────────────────────────────────────────────────────────────────────
   # POST-ITERATION: PLAN STATUS CHECK
   #─────────────────────────────────────────────────────────────────────────────
@@ -1643,43 +1670,43 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
   #─────────────────────────────────────────────────────────────────────────────
   # CHECK COMPLETION STATUS (with programmatic verification)
   #─────────────────────────────────────────────────────────────────────────────
-  
+
   # Handle CHECK phase statuses
   if [ "$status" = "CHECK_PHASE_COMPLETE" ]; then
     echo ""
     echo "✅ CHECK phase complete - Ready to proceed to next milestone"
-    status="CONTINUE"  # Continue to next milestone's implementation tasks
+    status="CONTINUE" # Continue to next milestone's implementation tasks
   elif [ "$status" = "CHECK_PHASE_NEEDS_WORK" ]; then
     echo ""
     echo "⚠️  CHECK phase incomplete - Corrective actions required"
-    status="CONTINUE"  # Continue with corrective tasks
+    status="CONTINUE" # Continue with corrective tasks
   elif [ "$status" = "MILESTONE_NEEDS_COMPLETION" ]; then
     echo ""
     echo "⚠️  CHECK phase passed but milestone tasks remain - Continue implementation"
     status="CONTINUE"
   fi
-  
+
   # Verify LLM's completion claim against actual plan file state
   if [ "$status" = "ALL_TASKS_COMPLETE" ]; then
     plan_status=$(verify_plan_completion "$PLAN_FILE")
-    
+
     if [ "$plan_status" != "COMPLETE" ]; then
       echo ""
       echo "⚠️  LLM CLAIMED ALL_TASKS_COMPLETE BUT PLAN SHOWS: $plan_status"
       echo "⚠️  Overriding status to CONTINUE - false positive detected"
       echo ""
       status="CONTINUE"
-      
+
       # Log the false positive
-      echo "FALSE POSITIVE DETECTED: LLM claimed ALL_TASKS_COMPLETE but plan shows $plan_status" >> "$LOG_FILE"
+      echo "FALSE POSITIVE DETECTED: LLM claimed ALL_TASKS_COMPLETE but plan shows $plan_status" >>"$LOG_FILE"
 
       # Notify Slack about the false positive
       if [ "$USE_SLACK" = "true" ]; then
-        if [ -n "$PIPELINE_THREAD_TS" ] && command -v post_to_slack_thread &> /dev/null; then
+        if [ -n "$PIPELINE_THREAD_TS" ] && command -v post_to_slack_thread &>/dev/null; then
           post_to_slack_thread "⚠️ *False Positive Detected*
 LLM claimed ALL_TASKS_COMPLETE but plan shows: $plan_status
 Continuing pipeline..." "$PIPELINE_THREAD_TS" 2>/dev/null || true
-        elif command -v post_to_slack &> /dev/null; then
+        elif command -v post_to_slack &>/dev/null; then
           post_to_slack "⚠️ *False Positive Detected*
 LLM claimed ALL_TASKS_COMPLETE but plan shows: $plan_status
 Continuing pipeline..." 2>/dev/null || true
@@ -1687,7 +1714,7 @@ Continuing pipeline..." 2>/dev/null || true
       fi
     fi
   fi
-  
+
   if [ "$status" = "ALL_TASKS_COMPLETE" ]; then
     play_sound_plan_done
     if [ "$OUTPUT_TYPE" = "json" ]; then
@@ -1699,7 +1726,7 @@ Continuing pipeline..." 2>/dev/null || true
     fi
 
     strip_in_progress_from_file "$PLAN_FILE"
-    
+
     complete_msg="🎉 *ALL TASKS COMPLETE!*
 
 Total iterations: $iteration
@@ -1707,9 +1734,9 @@ Total time: $(format_duration $total_elapsed)
 Finished: $(date '+%Y-%m-%d %H:%M:%S')"
 
     if [ "$USE_SLACK" = "true" ]; then
-      if [ -n "$PIPELINE_THREAD_TS" ] && command -v post_to_slack_thread &> /dev/null; then
+      if [ -n "$PIPELINE_THREAD_TS" ] && command -v post_to_slack_thread &>/dev/null; then
         post_to_slack_thread "$complete_msg" "$PIPELINE_THREAD_TS" 2>/dev/null || true
-      elif command -v post_to_slack &> /dev/null; then
+      elif command -v post_to_slack &>/dev/null; then
         post_to_slack "$complete_msg" 2>/dev/null || true
       fi
     fi
@@ -1717,7 +1744,7 @@ Finished: $(date '+%Y-%m-%d %H:%M:%S')"
     clean_workspace_after_exit
     $SCRIPT_EXIT 0
   fi
-  
+
   #─────────────────────────────────────────────────────────────────────────────
   # CHECK FOR GRACEFUL SHUTDOWN REQUEST
   #─────────────────────────────────────────────────────────────────────────────
@@ -1732,7 +1759,7 @@ Finished: $(date '+%Y-%m-%d %H:%M:%S')"
       echo "--- Stopped (Ctrl+C) ---"
       echo "  Iterations: $iteration/$MAX_ITERATIONS  ·  Time: $(format_duration_short $total_elapsed)  ·  Stopped $(date '+%Y-%m-%d %H:%M:%S')"
     fi
-    
+
     # Post final message to thread if available, otherwise standalone
     stop_msg="🛑 *Manually Stopped*
 
@@ -1741,9 +1768,9 @@ Total time: $(format_duration $total_elapsed)
 Stopped: $(date '+%Y-%m-%d %H:%M:%S')"
 
     if [ "$USE_SLACK" = "true" ]; then
-      if [ -n "$PIPELINE_THREAD_TS" ] && command -v post_to_slack_thread &> /dev/null; then
+      if [ -n "$PIPELINE_THREAD_TS" ] && command -v post_to_slack_thread &>/dev/null; then
         post_to_slack_thread "$stop_msg" "$PIPELINE_THREAD_TS" 2>/dev/null || true
-      elif command -v post_to_slack &> /dev/null; then
+      elif command -v post_to_slack &>/dev/null; then
         post_to_slack "$stop_msg" 2>/dev/null || true
       fi
     fi
@@ -1789,9 +1816,9 @@ Total time: $(format_duration $total_elapsed)
 Run again to continue."
 
 if [ "$USE_SLACK" = "true" ]; then
-  if [ -n "$PIPELINE_THREAD_TS" ] && command -v post_to_slack_thread &> /dev/null; then
+  if [ -n "$PIPELINE_THREAD_TS" ] && command -v post_to_slack_thread &>/dev/null; then
     post_to_slack_thread "$max_iter_msg" "$PIPELINE_THREAD_TS" 2>/dev/null || true
-  elif command -v post_to_slack &> /dev/null; then
+  elif command -v post_to_slack &>/dev/null; then
     post_to_slack "$max_iter_msg" 2>/dev/null || true
   fi
 fi

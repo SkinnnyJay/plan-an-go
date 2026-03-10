@@ -20,19 +20,21 @@ for arg in "$@"; do
   case "$arg" in
     --prd-path=*) PRD_PATH="${arg#*=}" ;;
     --plan-path=*) PLAN_PATH="${arg#*=}" ;;
-    --no-ask)     NO_ASK=1 ;;
-    --prd-path)   ;;
-    --plan-path)  ;;
+    --no-ask) NO_ASK=1 ;;
+    --prd-path) ;;
+    --plan-path) ;;
     *)
-      if [ "$PREV_ARG" = "--prd-path" ]; then PRD_PATH="$arg"
-      elif [ "$PREV_ARG" = "--plan-path" ]; then PLAN_PATH="$arg"
+      if [ "$PREV_ARG" = "--prd-path" ]; then
+        PRD_PATH="$arg"
+      elif [ "$PREV_ARG" = "--plan-path" ]; then
+        PLAN_PATH="$arg"
       fi
       ;;
   esac
   PREV_ARG="$arg"
 done
 
-[ -f "$STATE_FILE" ] && source "$STATE_FILE" 2>/dev/null || true
+if [ -f "$STATE_FILE" ]; then source "$STATE_FILE" 2>/dev/null || true; fi
 [ -z "$PRD_PATH" ] && PRD_PATH="${WIZARD_PRD_PATH:-}"
 [ -z "$PLAN_PATH" ] && PLAN_PATH="${WIZARD_PLAN_PATH:-$ROOT/PLAN.md}"
 
@@ -46,8 +48,11 @@ if [ -z "$NO_ASK" ]; then
   echo "Launch plan-an-go forever with --plan $PLAN_PATH? (y/N)" >&2
   read -r LAUNCH
   case "$LAUNCH" in
-    [yY]|[yY][eE][sS]) ;;
-    *) echo "[wizard] Skip launch." >&2; exit 0 ;;
+    [yY] | [yY][eE][sS]) ;;
+    *)
+      echo "[wizard] Skip launch." >&2
+      exit 0
+      ;;
   esac
 fi
 

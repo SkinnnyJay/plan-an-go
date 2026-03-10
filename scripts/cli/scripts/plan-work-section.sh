@@ -42,7 +42,7 @@ case "$SUBCOMMAND" in
     ;;
   bounds)
     # Output one "start end" per <work>...</work> block. When no <work>: fallback to one range (heuristics).
-    last_line=$(wc -l < "$PLAN_FILE" | tr -d ' ')
+    last_line=$(wc -l <"$PLAN_FILE" | tr -d ' ')
     [ -z "$last_line" ] && last_line=1
     range=$(awk -v last="$last_line" '
       /^```/     { in_code = 1 - in_code; next }

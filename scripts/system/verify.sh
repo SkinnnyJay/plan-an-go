@@ -18,7 +18,8 @@ done
 # Load env to check keys
 load_env() {
   for f in "$ENV_FILE" "$ENV_LOCAL"; do
-    [ -f "$f" ] && set -a && . "$f" 2>/dev/null; set +a
+    [ -f "$f" ] && set -a && . "$f" 2>/dev/null
+    set +a
   done
 }
 load_env

@@ -123,9 +123,12 @@ run_choice() {
       ;;
     8) "$SCRIPT_DIR/plan-an-go" task-watcher ;;
     9) "$SCRIPT_DIR/plan-an-go" reset ;;
-    v|V) review_vars ;;
-    h|H) "$SCRIPT_DIR/plan-an-go" help ;;
-    q|Q) echo "Bye."; exit 0 ;;
+    v | V) review_vars ;;
+    h | H) "$SCRIPT_DIR/plan-an-go" help ;;
+    q | Q)
+      echo "Bye."
+      exit 0
+      ;;
     *) echo "Unknown option. Try again." >&2 ;;
   esac
 }
@@ -137,7 +140,7 @@ echo ""
 
 read -r -p "Review or set key variables before choosing an action? (y/N): " do_review
 case "$do_review" in
-  y|Y) review_vars ;;
+  y | Y) review_vars ;;
   *) ;;
 esac
 

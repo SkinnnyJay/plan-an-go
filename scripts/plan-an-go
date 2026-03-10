@@ -119,7 +119,7 @@ fi
 # Build dispatch args: for run/forever, --out-dir becomes --workspace; for planner/prd, default --out
 DISPATCH_ARGS=("${FINAL_SUB_ARGS[@]}")
 case "$SUBCMD" in
-  run|forever)
+  run | forever)
     if [ -n "$OUT_DIR_ABS" ]; then
       DISPATCH_ARGS=(--workspace "$OUT_DIR_ABS" "${DISPATCH_ARGS[@]}")
     fi
@@ -165,8 +165,8 @@ if [ "$SUBCMD" = "run" ] || [ "$SUBCMD" = "forever" ]; then
   if [ "$PLAN_AN_GO_ROOT" = "$REPO_ROOT" ]; then
     PLAN_PATH=""
     for i in "${!DISPATCH_ARGS[@]}"; do
-      if [ "${DISPATCH_ARGS[i]}" = "--plan" ] && [ $((i+1)) -lt ${#DISPATCH_ARGS[@]} ]; then
-        PLAN_PATH="${DISPATCH_ARGS[i+1]}"
+      if [ "${DISPATCH_ARGS[i]}" = "--plan" ] && [ $((i + 1)) -lt ${#DISPATCH_ARGS[@]} ]; then
+        PLAN_PATH="${DISPATCH_ARGS[i + 1]}"
         break
       fi
       if [[ "${DISPATCH_ARGS[i]}" == --plan=* ]]; then
@@ -226,7 +226,7 @@ case "$SUBCMD" in
   setup)
     (cd "$REPO_ROOT" && exec "$SCRIPT_DIR/system/setup.sh" "${SUB_ARGS[@]}")
     ;;
-  install-plan-an-go|link)
+  install-plan-an-go | link)
     (cd "$REPO_ROOT" && exec "$SCRIPT_DIR/system/install-plan-an-go.sh" "${SUB_ARGS[@]}")
     ;;
   install-clis)
@@ -238,7 +238,7 @@ case "$SUBCMD" in
   verify)
     (cd "$REPO_ROOT" && exec "$SCRIPT_DIR/system/verify.sh" "${SUB_ARGS[@]}")
     ;;
-  ""|help|--help|-h)
+  "" | help | --help | -h)
     echo "plan-an-go — Run from any directory; operating root is resolved and used as workspace."
     echo ""
     echo "Usage: plan-an-go [--root PATH] [:<subcommand>| <subcommand>] [args...]"

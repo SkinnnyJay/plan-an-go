@@ -8,6 +8,7 @@
 set -e
 set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC2034
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Shared helper (used by platform scripts when sourced)
@@ -37,19 +38,22 @@ CHECK_ONLY_CLIS="cursor-agent"
 run_install() {
   local name="$1"
   case "$name" in
-    claude)         install_claude ;;
-    cline)          install_cline ;;
-    codex)          install_codex ;;
-    copilot)        install_copilot ;;
-    droid)          install_droid ;;
-    gemini)         install_gemini ;;
-    goose)          install_goose ;;
-    kiro)           install_kiro ;;
-    opencode)       install_opencode ;;
-    jq)             install_jq ;;
-    fswatch)        install_fswatch ;;
-    cursor-agent)   check_cursor_agent ;;
-    *)              echo "  Unknown CLI: $name"; return 1 ;;
+    claude) install_claude ;;
+    cline) install_cline ;;
+    codex) install_codex ;;
+    copilot) install_copilot ;;
+    droid) install_droid ;;
+    gemini) install_gemini ;;
+    goose) install_goose ;;
+    kiro) install_kiro ;;
+    opencode) install_opencode ;;
+    jq) install_jq ;;
+    fswatch) install_fswatch ;;
+    cursor-agent) check_cursor_agent ;;
+    *)
+      echo "  Unknown CLI: $name"
+      return 1
+      ;;
   esac
 }
 
@@ -75,7 +79,7 @@ if [ ${#WANT_CLIS[@]} -eq 0 ] && [ "$WANT_ALL" != "true" ]; then
     fi
     read -r ans
     case "$ans" in
-      y|Y|yes) WANT_CLIS+=("$c") ;;
+      y | Y | yes) WANT_CLIS+=("$c") ;;
     esac
   done
 fi

@@ -15,7 +15,7 @@ if [ ! -f "$PLAN_FILE" ] || [ ! -s "$PLAN_FILE" ]; then
   exit 1
 fi
 
-: > "$OUT_FILE"
+: >"$OUT_FILE"
 
 # When <work>...</work> exists, only output task content from inside any such block (plan may have multiple).
 # Otherwise (backward compat) use first milestone to start the task section.
@@ -27,13 +27,13 @@ last_milestone=""
 
 while IFS= read -r line || [ -n "$line" ]; do
   if [[ "$line" =~ ^\<work\> ]]; then
-    echo "$line" >> "$OUT_FILE"
+    echo "$line" >>"$OUT_FILE"
     in_work=1
     after_work=0
     continue
   fi
   if [[ "$line" =~ ^\</work\> ]]; then
-    echo "$line" >> "$OUT_FILE"
+    echo "$line" >>"$OUT_FILE"
     in_work=0
     after_work=1
     continue
@@ -41,13 +41,13 @@ while IFS= read -r line || [ -n "$line" ]; do
 
   # Before <work> or before first milestone (no <work>): keep header
   if [ "$in_work" -eq 0 ] && [ "$in_task_section" -eq 0 ]; then
-    echo "$line" >> "$OUT_FILE"
+    echo "$line" >>"$OUT_FILE"
     continue
   fi
 
   # After </work>: keep postamble (success criteria, etc.)
   if [ "$after_work" -eq 1 ]; then
-    echo "$line" >> "$OUT_FILE"
+    echo "$line" >>"$OUT_FILE"
     continue
   fi
 
@@ -55,26 +55,26 @@ while IFS= read -r line || [ -n "$line" ]; do
   if [[ "$line" =~ ^\*\*M[0-9]+:0[[:space:]]+- ]]; then
     in_task_section=1
     last_milestone="$line"
-    echo "$line" >> "$OUT_FILE"
+    echo "$line" >>"$OUT_FILE"
     continue
   fi
   if [[ "$line" =~ ^[[:space:]]*\[[[:space:]]{1,2}\][[:space:]]*-[[:space:]]*M[0-9]+:[0-9]+ ]]; then
     if [ -z "$AGENT_ID" ]; then
-      echo "$line" >> "$OUT_FILE"
+      echo "$line" >>"$OUT_FILE"
     elif [[ "$line" == *"[IN_PROGRESS]:[${AGENT_ID}]"* ]]; then
-      echo "$line" >> "$OUT_FILE"
+      echo "$line" >>"$OUT_FILE"
     fi
     continue
   fi
   if [[ "$line" =~ ^-[[:space:]]*\[[[:space:]]\][[:space:]]*\*\* ]]; then
     if [ -z "$AGENT_ID" ]; then
-      echo "$line" >> "$OUT_FILE"
+      echo "$line" >>"$OUT_FILE"
     elif [[ "$line" == *"[IN_PROGRESS]:[${AGENT_ID}]"* ]]; then
-      echo "$line" >> "$OUT_FILE"
+      echo "$line" >>"$OUT_FILE"
     fi
     continue
   fi
   if [ -z "$line" ] && [ -n "$last_milestone" ]; then
-    echo "$line" >> "$OUT_FILE"
+    echo "$line" >>"$OUT_FILE"
   fi
-done < "$PLAN_FILE"
+done <"$PLAN_FILE"

@@ -52,19 +52,14 @@ for arg in "$@"; do
     --plan-string=*)
       PLAN_STRING="${arg#*=}"
       ;;
-    --prd=*|--out=*)
+    --prd=* | --out=*)
       PRD_OUT="${arg#*=}"
       ;;
-    --cli)
-      ;;
-    --cli-flags)
-      ;;
-    --plan)
-      ;;
-    --plan-string)
-      ;;
-    --prd|--out)
-      ;;
+    --cli) ;;
+    --cli-flags) ;;
+    --plan) ;;
+    --plan-string) ;;
+    --prd | --out) ;;
     *)
       if [ "${PREV_ARG}" = "--cli" ]; then
         CLI_BIN="$arg"
@@ -89,17 +84,17 @@ done
 # Resolve CLI flags
 if [ -z "$CLI_FLAGS" ]; then
   case "$CLI_BIN" in
-    claude)         CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
-    cline)          CLI_FLAGS="${PLAN_AN_GO_CLINE_FLAGS:-}" ;;
-    codex)          CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
-    copilot)        CLI_FLAGS="${PLAN_AN_GO_COPILOT_FLAGS:-}" ;;
-    cursor-agent)   CLI_FLAGS="${PLAN_AN_GO_CURSOR_AGENT_FLAGS:-}" ;;
-    droid)          CLI_FLAGS="${PLAN_AN_GO_DROID_FLAGS:-}" ;;
-    gemini)         CLI_FLAGS="${PLAN_AN_GO_GEMINI_FLAGS:-}" ;;
-    goose)          CLI_FLAGS="${PLAN_AN_GO_GOOSE_FLAGS:-}" ;;
-    kiro)           CLI_FLAGS="${PLAN_AN_GO_KIRO_FLAGS:-}" ;;
-    opencode)       CLI_FLAGS="${PLAN_AN_GO_OPENCODE_FLAGS:-}" ;;
-    *)              ;;
+    claude) CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
+    cline) CLI_FLAGS="${PLAN_AN_GO_CLINE_FLAGS:-}" ;;
+    codex) CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
+    copilot) CLI_FLAGS="${PLAN_AN_GO_COPILOT_FLAGS:-}" ;;
+    cursor-agent) CLI_FLAGS="${PLAN_AN_GO_CURSOR_AGENT_FLAGS:-}" ;;
+    droid) CLI_FLAGS="${PLAN_AN_GO_DROID_FLAGS:-}" ;;
+    gemini) CLI_FLAGS="${PLAN_AN_GO_GEMINI_FLAGS:-}" ;;
+    goose) CLI_FLAGS="${PLAN_AN_GO_GOOSE_FLAGS:-}" ;;
+    kiro) CLI_FLAGS="${PLAN_AN_GO_KIRO_FLAGS:-}" ;;
+    opencode) CLI_FLAGS="${PLAN_AN_GO_OPENCODE_FLAGS:-}" ;;
+    *) ;;
   esac
 fi
 
@@ -118,7 +113,7 @@ if [ -n "$PLAN_FILE" ] && [ ! -f "$PLAN_FILE" ]; then
 fi
 
 case "$CLI_BIN" in
-  claude|cline|copilot|codex|cursor-agent|droid|gemini|goose|kiro|opencode) ;;
+  claude | cline | copilot | codex | cursor-agent | droid | gemini | goose | kiro | opencode) ;;
   *)
     echo "ERROR: --cli must be 'claude', 'cline', 'copilot', 'codex', 'cursor-agent', 'droid', 'gemini', 'goose', 'kiro', or 'opencode' (got: $CLI_BIN)" >&2
     exit 1
@@ -130,7 +125,7 @@ if [ ! -f "$PRD_FROM_PLAN_PROMPT" ]; then
   exit 1
 fi
 
-if ! command -v "$CLI_BIN" &> /dev/null; then
+if ! command -v "$CLI_BIN" &>/dev/null; then
   echo "ERROR: '$CLI_BIN' CLI not found in PATH" >&2
   exit 1
 fi
@@ -148,26 +143,31 @@ plan_src="string"
 echo "prd-from-plan: plan=$plan_src prd=$PRD_OUT cli=$CLI_BIN" >&2
 
 # Build prompt: instructions + PLAN + optional existing PRD
-cat "$PRD_FROM_PLAN_PROMPT" >> "$temp_prompt"
-echo "" >> "$temp_prompt"
-
-echo "BEGIN PLAN" >> "$temp_prompt"
-echo "" >> "$temp_prompt"
+{
+  cat "$PRD_FROM_PLAN_PROMPT"
+  echo ""
+  echo "BEGIN PLAN"
+  echo ""
+} >>"$temp_prompt"
 if [ -n "$PLAN_STRING" ]; then
-  echo "$PLAN_STRING" >> "$temp_prompt"
+  echo "$PLAN_STRING" >>"$temp_prompt"
 else
-  cat "$PLAN_FILE" >> "$temp_prompt"
+  cat "$PLAN_FILE" >>"$temp_prompt"
 fi
-echo "" >> "$temp_prompt"
-echo "END PLAN" >> "$temp_prompt"
-echo "" >> "$temp_prompt"
+{
+  echo ""
+  echo "END PLAN"
+  echo ""
+} >>"$temp_prompt"
 
 if [ -f "$PRD_OUT" ] && [ -s "$PRD_OUT" ]; then
-  echo "BEGIN EXISTING PRD" >> "$temp_prompt"
-  echo "" >> "$temp_prompt"
-  cat "$PRD_OUT" >> "$temp_prompt"
-  echo "" >> "$temp_prompt"
-  echo "END EXISTING PRD" >> "$temp_prompt"
+  {
+    echo "BEGIN EXISTING PRD"
+    echo ""
+    cat "$PRD_OUT"
+    echo ""
+    echo "END EXISTING PRD"
+  } >>"$temp_prompt"
 fi
 
 # Invoke CLI (same pattern as plan-an-go-prd.sh)
@@ -201,7 +201,7 @@ elif [ "$CLI_BIN" = "opencode" ]; then
   [ -n "$OPENCODE_MODEL" ] && CLI_ARGS+=(--model "$OPENCODE_MODEL")
 fi
 if [ -n "$CLI_FLAGS" ]; then
-  read -r -a EXTRA_CLI_ARGS <<< "$CLI_FLAGS"
+  read -r -a EXTRA_CLI_ARGS <<<"$CLI_FLAGS"
   CLI_ARGS+=("${EXTRA_CLI_ARGS[@]}")
 fi
 
@@ -209,22 +209,22 @@ echo "[prd-from-plan] Generating PRD from plan with $CLI_BIN..." >&2
 exit_code=0
 set +e
 if [ "$CLI_BIN" = "codex" ]; then
-  codex exec "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_out" 2> "$temp_err"
+  codex exec "${CLI_ARGS[@]}" - <"$temp_prompt" >"$temp_out" 2>"$temp_err"
   exit_code=$?
 elif [ "$CLI_BIN" = "droid" ]; then
-  droid "${CLI_ARGS[@]}" -f "$temp_prompt" > "$temp_out" 2> "$temp_err"
+  droid "${CLI_ARGS[@]}" -f "$temp_prompt" >"$temp_out" 2>"$temp_err"
   exit_code=$?
 elif [ "$CLI_BIN" = "kiro" ]; then
-  kiro "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" > "$temp_out" 2> "$temp_err"
+  kiro "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" >"$temp_out" 2>"$temp_err"
   exit_code=$?
 elif [ "$CLI_BIN" = "opencode" ]; then
-  opencode "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" > "$temp_out" 2> "$temp_err"
+  opencode "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" >"$temp_out" 2>"$temp_err"
   exit_code=$?
 elif [ "$CLI_BIN" = "gemini" ] || [ "$CLI_BIN" = "goose" ] || [ "$CLI_BIN" = "cline" ] || [ "$CLI_BIN" = "copilot" ]; then
-  "$CLI_BIN" "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_out" 2> "$temp_err"
+  "$CLI_BIN" "${CLI_ARGS[@]}" - <"$temp_prompt" >"$temp_out" 2>"$temp_err"
   exit_code=$?
 else
-  "$CLI_BIN" "${CLI_ARGS[@]}" -p "@$temp_prompt" > "$temp_out" 2> "$temp_err"
+  "$CLI_BIN" "${CLI_ARGS[@]}" -p "@$temp_prompt" >"$temp_out" 2>"$temp_err"
   exit_code=$?
 fi
 set -e
@@ -244,11 +244,11 @@ METADATA_SCRIPT="$SCRIPT_DIR/scripts/plan-an-go-doc-metadata.sh"
 temp_final=$(mktemp "$TMP_DIR/prd-from-plan-final.XXXXXX")
 trap 'rm -f "$temp_prompt" "$temp_out" "$temp_err" "$temp_final"' EXIT
 if [ -f "$METADATA_SCRIPT" ]; then
-  bash "$METADATA_SCRIPT" "plan-an-go-prd-from-plan" "$CLI_BIN" > "$temp_final"
-  echo "" >> "$temp_final"
-  cat "$temp_out" >> "$temp_final"
+  bash "$METADATA_SCRIPT" "plan-an-go-prd-from-plan" "$CLI_BIN" >"$temp_final"
+  echo "" >>"$temp_final"
+  cat "$temp_out" >>"$temp_final"
 else
-  cat "$temp_out" > "$temp_final"
+  cat "$temp_out" >"$temp_final"
 fi
 mv "$temp_final" "$PRD_OUT"
 echo "[prd-from-plan] Wrote PRD to $PRD_OUT" >&2

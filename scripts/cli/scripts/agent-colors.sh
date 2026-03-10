@@ -5,7 +5,8 @@
 
 # ANSI 8-color palette (index 0-7): red, green, yellow, blue, magenta, cyan, white, bright black
 AGENT_PALETTE_ANSI=(31 32 33 34 35 36 37 90)
-# Hex presets for nearest-color: same order (red, green, yellow, blue, magenta, cyan, white, gray)
+# Hex presets for nearest-color (same order as AGENT_PALETTE_ANSI); used by hex_to_ansi via presets
+# shellcheck disable=SC2034
 AGENT_PALETTE_HEX=("ff0000" "00ff00" "ffff00" "0000ff" "ff00ff" "00ffff" "ffffff" "808080")
 
 # Convert hex #rrggbb to nearest ANSI code (0-7 index into AGENT_PALETTE_ANSI).
@@ -22,7 +23,7 @@ hex_to_ansi() {
   local i=0
   for p in "${presets[@]}"; do
     local pr pg pb
-    read -r pr pg pb <<< "$p"
+    read -r pr pg pb <<<"$p"
     local sum=$((${r:-0} > pr ? r - pr : pr - r))
     sum=$((sum + (${g:-0} > pg ? g - pg : pg - g)))
     sum=$((sum + (${b:-0} > pb ? b - pb : pb - b)))
@@ -53,8 +54,6 @@ build_agent_color_map() {
   [ -n "$RANDOM" ] && offset=$((RANDOM % 8))
   local i=1
   while [ "$i" -le "$n" ]; do
-    local agent_id
-    agent_id=$(printf 'AGENT_%02d' "$i")
     local ansi_code=""
     if [ -n "$config_file" ] && command -v jq &>/dev/null; then
       local name
@@ -67,9 +66,13 @@ build_agent_color_map() {
       fi
     fi
     [ -z "$ansi_code" ] && ansi_code="${AGENT_PALETTE_ANSI[$(((i - 1 + offset) % 8))]}"
-    printf -v "AGENT_COLOR_%02d" "$i" $'\033['"${ansi_code}"'m'
+    local esc varname
+    esc=$(printf '\033[%sm' "$ansi_code")
+    varname=$(printf 'AGENT_COLOR_%02d' "$i")
+    printf -v "$varname" '%s' "$esc"
     i=$((i + 1))
   done
+  # shellcheck disable=SC2034
   AGENT_COLOR_COUNT=$n
 }
 
@@ -82,7 +85,7 @@ get_agent_color() {
     return
   fi
   if [ -t 1 ] 2>/dev/null || [ -t 2 ] 2>/dev/null; then
-    :;
+    :
   else
     echo ""
     return

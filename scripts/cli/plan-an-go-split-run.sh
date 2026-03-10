@@ -51,14 +51,14 @@ TMP_BOT_ABS="$TMP_BASE/split-bot.$$.sh"
   printf 'cd %q && exec %q' "$REPO_ROOT" "$SCRIPT_DIR/plan-an-go-task-watcher.sh"
   printf ' %q' "${TOP_ARGS[@]}"
   echo
-} > "$TMP_TOP_ABS"
+} >"$TMP_TOP_ABS"
 chmod +x "$TMP_TOP_ABS"
 
 {
   printf 'cd %q && exec %q' "$REPO_ROOT" "$SCRIPT_DIR/plan-an-go-forever.sh"
   printf ' %q' "${BOTTOM_ARGS[@]}"
   echo
-} > "$TMP_BOT_ABS"
+} >"$TMP_BOT_ABS"
 chmod +x "$TMP_BOT_ABS"
 
 echo "Command: opening split terminals (top = task watcher, bottom = forever)."

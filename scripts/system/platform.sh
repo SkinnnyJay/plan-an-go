@@ -8,9 +8,9 @@ get_platform() {
   local u
   u="$(uname -s 2>/dev/null)"
   case "$u" in
-    Darwin)           echo darwin ;;
-    MINGW*|MSYS*|CYGWIN*) echo windows ;;
-    *)                echo linux ;;
+    Darwin) echo darwin ;;
+    MINGW* | MSYS* | CYGWIN*) echo windows ;;
+    *) echo linux ;;
   esac
 }
 
@@ -24,7 +24,7 @@ stat_mtime() {
   fi
   case "$(get_platform)" in
     darwin) mtime=$(stat -f %m "$path" 2>/dev/null) ;;
-    *)      mtime=$(stat -c %Y "$path" 2>/dev/null) ;;
+    *) mtime=$(stat -c %Y "$path" 2>/dev/null) ;;
   esac
   if [[ -z "$mtime" ]]; then
     echo "?"
@@ -39,23 +39,23 @@ install_hint() {
   case "$(get_platform)" in
     darwin)
       case "$tool" in
-        jq)      echo "brew install jq" ;;
+        jq) echo "brew install jq" ;;
         fswatch) echo "brew install fswatch" ;;
-        *)       echo "install $tool manually" ;;
+        *) echo "install $tool manually" ;;
       esac
       ;;
     linux)
       case "$tool" in
-        jq)      echo "sudo apt-get install -y jq   # or: brew install jq" ;;
+        jq) echo "sudo apt-get install -y jq   # or: brew install jq" ;;
         fswatch) echo "sudo apt-get install -y fswatch   # or: brew install fswatch" ;;
-        *)       echo "install $tool manually" ;;
+        *) echo "install $tool manually" ;;
       esac
       ;;
     windows)
       case "$tool" in
-        jq)      echo "winget install jqlang.jq   # or: choco install jq" ;;
+        jq) echo "winget install jqlang.jq   # or: choco install jq" ;;
         fswatch) echo "choco install fswatch   # or install manually" ;;
-        *)       echo "install $tool manually" ;;
+        *) echo "install $tool manually" ;;
       esac
       ;;
     *)

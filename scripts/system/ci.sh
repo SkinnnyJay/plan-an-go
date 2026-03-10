@@ -22,7 +22,10 @@ run_step_npm() {
   shift
   echo ""
   echo "=== Step $STEP: $name ==="
-  npm run "$@" || { local ec=$?; fail_step "Step $STEP: $name" "$ec"; }
+  npm run "$@" || {
+    local ec=$?
+    fail_step "Step $STEP: $name" "$ec"
+  }
   echo "Step $STEP OK"
 }
 

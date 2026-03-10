@@ -31,12 +31,9 @@ for arg in "$@"; do
     --strict)
       PLAN_AN_GO_STRICT=true
       ;;
-    --workspace)
-      ;;
-    --cli)
-      ;;
-    --cli-flags)
-      ;;
+    --workspace) ;;
+    --cli) ;;
+    --cli-flags) ;;
     *)
       if [ "${PREV_ARG}" = "--workspace" ]; then
         WORKSPACE="$arg"
@@ -54,24 +51,27 @@ export PLAN_AN_GO_STRICT
 # Resolve CLI flags: use PLAN_AN_GO_CLI_FLAGS if set, else per-CLI vars
 if [ -z "$CLI_FLAGS" ]; then
   case "$CLI_BIN" in
-    claude)         CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
-    cline)          CLI_FLAGS="${PLAN_AN_GO_CLINE_FLAGS:-}" ;;
-    codex)          CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
-    copilot)        CLI_FLAGS="${PLAN_AN_GO_COPILOT_FLAGS:-}" ;;
-    cursor-agent)   CLI_FLAGS="${PLAN_AN_GO_CURSOR_AGENT_FLAGS:-}" ;;
-    droid)          CLI_FLAGS="${PLAN_AN_GO_DROID_FLAGS:-}" ;;
-    gemini)         CLI_FLAGS="${PLAN_AN_GO_GEMINI_FLAGS:-}" ;;
-    goose)          CLI_FLAGS="${PLAN_AN_GO_GOOSE_FLAGS:-}" ;;
-    kiro)           CLI_FLAGS="${PLAN_AN_GO_KIRO_FLAGS:-}" ;;
-    opencode)       CLI_FLAGS="${PLAN_AN_GO_OPENCODE_FLAGS:-}" ;;
-    *)              ;;
+    claude) CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
+    cline) CLI_FLAGS="${PLAN_AN_GO_CLINE_FLAGS:-}" ;;
+    codex) CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
+    copilot) CLI_FLAGS="${PLAN_AN_GO_COPILOT_FLAGS:-}" ;;
+    cursor-agent) CLI_FLAGS="${PLAN_AN_GO_CURSOR_AGENT_FLAGS:-}" ;;
+    droid) CLI_FLAGS="${PLAN_AN_GO_DROID_FLAGS:-}" ;;
+    gemini) CLI_FLAGS="${PLAN_AN_GO_GEMINI_FLAGS:-}" ;;
+    goose) CLI_FLAGS="${PLAN_AN_GO_GOOSE_FLAGS:-}" ;;
+    kiro) CLI_FLAGS="${PLAN_AN_GO_KIRO_FLAGS:-}" ;;
+    opencode) CLI_FLAGS="${PLAN_AN_GO_OPENCODE_FLAGS:-}" ;;
+    *) ;;
   esac
 fi
 
 # Change to workspace directory when specified (for standalone runs)
 if [ -n "$WORKSPACE" ]; then
   WORKSPACE_ABS="$(cd "$WORKSPACE" && pwd)"
-  cd "$WORKSPACE_ABS" || { echo "ERROR: Cannot cd to workspace: $WORKSPACE" >&2; exit 1; }
+  cd "$WORKSPACE_ABS" || {
+    echo "ERROR: Cannot cd to workspace: $WORKSPACE" >&2
+    exit 1
+  }
   # Resolve PLAN_FILE relative to workspace if it was relative
   if [[ "$PLAN_FILE" != /* ]]; then
     PLAN_FILE="$WORKSPACE_ABS/$PLAN_FILE"
@@ -94,7 +94,7 @@ mkdir -p "$TMP_DIR"
 PROGRESS_FILE="$TMP_DIR/progress.log"
 
 case "$CLI_BIN" in
-  claude|cline|copilot|codex|cursor-agent|droid|gemini|goose|kiro|opencode) ;;
+  claude | cline | copilot | codex | cursor-agent | droid | gemini | goose | kiro | opencode) ;;
   *)
     echo "------START: IMPLEMENTER------"
     echo "ERROR: --cli must be 'claude', 'cline', 'copilot', 'codex', 'cursor-agent', 'droid', 'gemini', 'goose', 'kiro', or 'opencode' (got: $CLI_BIN)"
@@ -136,7 +136,7 @@ if [ "${PLAN_AN_GO_STRICT:-false}" = "true" ]; then
 fi
 
 # Validate selected CLI is available
-if ! command -v "$CLI_BIN" &> /dev/null; then
+if ! command -v "$CLI_BIN" &>/dev/null; then
   echo "------START: IMPLEMENTER------"
   echo "ERROR: '$CLI_BIN' CLI not found in PATH"
   echo "VERDICT: FAILED"
@@ -145,11 +145,13 @@ if ! command -v "$CLI_BIN" &> /dev/null; then
 fi
 
 # Create progress log under TMP_DIR if missing (PLAN_AN_GO_TMP defaults to ./tmp)
-[ ! -f "$PROGRESS_FILE" ] && echo "# Progress Log" > "$PROGRESS_FILE"
+[ ! -f "$PROGRESS_FILE" ] && echo "# Progress Log" >"$PROGRESS_FILE"
 
 # Extract incomplete tasks to reduce token usage (when PLAN_AN_GO_AGENT_ID is set, only that agent's task is included)
 EXTRACTED_PLAN=$(mktemp "$TMP_DIR/extract.XXXXXX")
+# shellcheck disable=SC2329
 cleanup() {
+  # shellcheck disable=SC2317
   [ -n "${EXTRACTED_PLAN:-}" ] && rm -f "$EXTRACTED_PLAN"
   [ -n "${temp_file:-}" ] && rm -f "$temp_file"
   [ -n "${temp_err:-}" ] && rm -f "$temp_err"
@@ -167,7 +169,7 @@ temp_err=$(mktemp "$TMP_DIR/impl-err.XXXXXX")
 temp_prompt=$(mktemp "$TMP_DIR/impl-prompt.XXXXXX")
 
 # Build prompt in temp file using heredoc (safer for special characters)
-cat > "$temp_prompt" << 'STATIC_PROMPT'
+cat >"$temp_prompt" <<'STATIC_PROMPT'
 You are AGENT 1: THE IMPLEMENTER. Your job is to implement ONE task from the plan using a structured plan-think-research-distill-execute-validate workflow. A separate validation agent will also audit your work.
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -240,33 +242,40 @@ COMMIT: [hash] - [message]  (or "COMMIT: skipped (reason)" if commit was skipped
 PLAN FILE TO UPDATE (edit this file: mark done = change [  ] to [x] or [ x] on the task line)
 ═══════════════════════════════════════════════════════════════════════════════
 STATIC_PROMPT
-echo "$PLAN_FILE" >> "$temp_prompt"
-echo "" >> "$temp_prompt"
-echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
-echo "PLAN CONTENT (incomplete tasks only)" >> "$temp_prompt"
+{
+  echo "$PLAN_FILE"
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════════════════════"
+  echo "PLAN CONTENT (incomplete tasks only)"
+} >>"$temp_prompt"
 if [ -n "${PLAN_AN_GO_AGENT_ID:-}" ]; then
-  echo "Implement the ONLY task below (your assigned task, marked [IN_PROGRESS]:[${PLAN_AN_GO_AGENT_ID}]). Do not pick any other task." >> "$temp_prompt"
+  echo "Implement the ONLY task below (your assigned task, marked [IN_PROGRESS]:[${PLAN_AN_GO_AGENT_ID}]). Do not pick any other task." >>"$temp_prompt"
 else
-  echo "Implement the FIRST task in the list below (the first line starting with \"- [ ] -\"); do not pick a later task." >> "$temp_prompt"
+  echo "Implement the FIRST task in the list below (the first line starting with \"- [ ] -\"); do not pick a later task." >>"$temp_prompt"
 fi
-echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
-# Append the plan content and progress
-cat "$EXTRACTED_PLAN" >> "$temp_prompt"
-echo "" >> "$temp_prompt"
-echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
-echo "PROGRESS LOG (update this file when marking task done): $PROGRESS_FILE" >> "$temp_prompt"
-echo "ARTIFACT DIRECTORY: $TMP_DIR" >> "$temp_prompt"
-echo "  Write ALL task output/completion files UNDER this directory (e.g. $TMP_DIR/task-M1-1-completed.log). Do NOT create task-*-completed.log or task-*-output.log in the workspace root." >> "$temp_prompt"
+{
+  echo "═══════════════════════════════════════════════════════════════════════════════"
+  cat "$EXTRACTED_PLAN"
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════════════════════"
+  echo "PROGRESS LOG (update this file when marking task done): $PROGRESS_FILE"
+  echo "ARTIFACT DIRECTORY: $TMP_DIR"
+  echo "  Write ALL task output/completion files UNDER this directory (e.g. $TMP_DIR/task-M1-1-completed.log). Do NOT create task-*-completed.log or task-*-output.log in the workspace root."
+} >>"$temp_prompt"
 if [ -n "${PLAN_AN_GO_SKIP_COMMIT:-}" ]; then
-  echo "" >> "$temp_prompt"
-  echo "COMMIT SKIP: Do NOT run git add or git commit (workspace is under tmp/; repo .git may be unwritable). In your report use: COMMIT: skipped (workspace under tmp)" >> "$temp_prompt"
+  {
+    echo ""
+    echo "COMMIT SKIP: Do NOT run git add or git commit (workspace is under tmp/; repo .git may be unwritable). In your report use: COMMIT: skipped (workspace under tmp)"
+  } >>"$temp_prompt"
 fi
-echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
-cat "$PROGRESS_FILE" >> "$temp_prompt"
+{
+  echo "═══════════════════════════════════════════════════════════════════════════════"
+  cat "$PROGRESS_FILE"
+} >>"$temp_prompt"
 
 # Streaming output colors (ANSI escape codes)
 # Uncomment your preferred background color:
-STREAM_BG="\033[48;5;236m"  # Dark gray (default - subtle, good readability)
+STREAM_BG="\033[48;5;236m" # Dark gray (default - subtle, good readability)
 # STREAM_BG="\033[48;5;17m"   # Dark blue
 # STREAM_BG="\033[48;5;22m"   # Dark green
 # STREAM_BG="\033[100m"       # Bright black
@@ -310,7 +319,7 @@ elif [ "$CLI_BIN" = "opencode" ]; then
   [ -n "$OPENCODE_MODEL" ] && CLI_ARGS+=(--model "$OPENCODE_MODEL")
 fi
 if [ -n "$CLI_FLAGS" ]; then
-  read -r -a EXTRA_CLI_ARGS <<< "$CLI_FLAGS"
+  read -r -a EXTRA_CLI_ARGS <<<"$CLI_FLAGS"
   CLI_ARGS+=("${EXTRA_CLI_ARGS[@]}")
 fi
 
@@ -336,7 +345,7 @@ if [ "$STREAM_OUTPUT" = "true" ]; then
   echo "[implementer] Running $CLI_BIN (streaming)..." >&2
   printf "%b" "${STREAM_BG}" >/dev/tty 2>/dev/null || true
   if [ "$CLI_BIN" = "codex" ]; then
-    codex exec "${CLI_ARGS[@]}" - < "$temp_prompt" 2>&1 | tee "$temp_file"
+    codex exec "${CLI_ARGS[@]}" - <"$temp_prompt" 2>&1 | tee "$temp_file"
   elif [ "$CLI_BIN" = "droid" ]; then
     droid "${CLI_ARGS[@]}" -f "$temp_prompt" 2>&1 | tee "$temp_file"
   elif [ "$CLI_BIN" = "kiro" ]; then
@@ -346,24 +355,24 @@ if [ "$STREAM_OUTPUT" = "true" ]; then
   elif [ "$CLI_BIN" = "cursor-agent" ]; then
     "$CLI_BIN" "${CLI_ARGS[@]}" "$PROMPT_FOR_ARG" 2>&1 | tee "$temp_file"
   else
-    "$CLI_BIN" "${CLI_ARGS[@]}" - < "$temp_prompt" 2>&1 | tee "$temp_file"
+    "$CLI_BIN" "${CLI_ARGS[@]}" - <"$temp_prompt" 2>&1 | tee "$temp_file"
   fi
   exit_code=${PIPESTATUS[0]}
   printf "%b" "${STREAM_RESET}" >/dev/tty 2>/dev/null || true
 else
   echo "[implementer] Running $CLI_BIN..." >&2
   if [ "$CLI_BIN" = "codex" ]; then
-    codex exec "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_file" 2> "$temp_err"
+    codex exec "${CLI_ARGS[@]}" - <"$temp_prompt" >"$temp_file" 2>"$temp_err"
   elif [ "$CLI_BIN" = "droid" ]; then
-    droid "${CLI_ARGS[@]}" -f "$temp_prompt" > "$temp_file" 2> "$temp_err"
+    droid "${CLI_ARGS[@]}" -f "$temp_prompt" >"$temp_file" 2>"$temp_err"
   elif [ "$CLI_BIN" = "kiro" ]; then
-    kiro "${CLI_ARGS[@]}" "$PROMPT_FOR_ARG" > "$temp_file" 2> "$temp_err"
+    kiro "${CLI_ARGS[@]}" "$PROMPT_FOR_ARG" >"$temp_file" 2>"$temp_err"
   elif [ "$CLI_BIN" = "opencode" ]; then
-    opencode "${CLI_ARGS[@]}" "$PROMPT_FOR_ARG" > "$temp_file" 2> "$temp_err"
+    opencode "${CLI_ARGS[@]}" "$PROMPT_FOR_ARG" >"$temp_file" 2>"$temp_err"
   elif [ "$CLI_BIN" = "cursor-agent" ]; then
-    "$CLI_BIN" "${CLI_ARGS[@]}" "$PROMPT_FOR_ARG" > "$temp_file" 2> "$temp_err"
+    "$CLI_BIN" "${CLI_ARGS[@]}" "$PROMPT_FOR_ARG" >"$temp_file" 2>"$temp_err"
   else
-    "$CLI_BIN" "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_file" 2> "$temp_err"
+    "$CLI_BIN" "${CLI_ARGS[@]}" - <"$temp_prompt" >"$temp_file" 2>"$temp_err"
   fi
   exit_code=$?
   set -e
@@ -376,4 +385,4 @@ else
 fi
 
 # Pass through exit code
-exit $exit_code
+exit "$exit_code"

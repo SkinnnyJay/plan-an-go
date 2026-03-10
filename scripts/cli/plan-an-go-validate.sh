@@ -28,12 +28,9 @@ for arg in "$@"; do
     --cli-flags=*)
       CLI_FLAGS="${arg#*=}"
       ;;
-    --workspace)
-      ;;
-    --cli)
-      ;;
-    --cli-flags)
-      ;;
+    --workspace) ;;
+    --cli) ;;
+    --cli-flags) ;;
     *)
       if [ "${PREV_ARG}" = "--workspace" ]; then
         WORKSPACE="$arg"
@@ -50,17 +47,17 @@ done
 # Resolve CLI flags: use PLAN_AN_GO_CLI_FLAGS if set, else per-CLI vars
 if [ -z "$CLI_FLAGS" ]; then
   case "$CLI_BIN" in
-    claude)         CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
-    cline)          CLI_FLAGS="${PLAN_AN_GO_CLINE_FLAGS:-}" ;;
-    codex)          CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
-    copilot)        CLI_FLAGS="${PLAN_AN_GO_COPILOT_FLAGS:-}" ;;
-    cursor-agent)   CLI_FLAGS="${PLAN_AN_GO_CURSOR_AGENT_FLAGS:-}" ;;
-    droid)          CLI_FLAGS="${PLAN_AN_GO_DROID_FLAGS:-}" ;;
-    gemini)         CLI_FLAGS="${PLAN_AN_GO_GEMINI_FLAGS:-}" ;;
-    goose)          CLI_FLAGS="${PLAN_AN_GO_GOOSE_FLAGS:-}" ;;
-    kiro)           CLI_FLAGS="${PLAN_AN_GO_KIRO_FLAGS:-}" ;;
-    opencode)       CLI_FLAGS="${PLAN_AN_GO_OPENCODE_FLAGS:-}" ;;
-    *)              ;;
+    claude) CLI_FLAGS="${PLAN_AN_GO_CLAUDE_FLAGS:-}" ;;
+    cline) CLI_FLAGS="${PLAN_AN_GO_CLINE_FLAGS:-}" ;;
+    codex) CLI_FLAGS="${PLAN_AN_GO_CODEX_FLAGS:-}" ;;
+    copilot) CLI_FLAGS="${PLAN_AN_GO_COPILOT_FLAGS:-}" ;;
+    cursor-agent) CLI_FLAGS="${PLAN_AN_GO_CURSOR_AGENT_FLAGS:-}" ;;
+    droid) CLI_FLAGS="${PLAN_AN_GO_DROID_FLAGS:-}" ;;
+    gemini) CLI_FLAGS="${PLAN_AN_GO_GEMINI_FLAGS:-}" ;;
+    goose) CLI_FLAGS="${PLAN_AN_GO_GOOSE_FLAGS:-}" ;;
+    kiro) CLI_FLAGS="${PLAN_AN_GO_KIRO_FLAGS:-}" ;;
+    opencode) CLI_FLAGS="${PLAN_AN_GO_OPENCODE_FLAGS:-}" ;;
+    *) ;;
   esac
 fi
 
@@ -71,7 +68,10 @@ if [ -n "$WORKSPACE" ]; then
     IMPLEMENTER_OUTPUT="$(cd "$(dirname "$IMPLEMENTER_OUTPUT")" 2>/dev/null && pwd)/$(basename "$IMPLEMENTER_OUTPUT")"
   fi
   WORKSPACE_ABS="$(cd "$WORKSPACE" && pwd)"
-  cd "$WORKSPACE_ABS" || { echo "ERROR: Cannot cd to workspace: $WORKSPACE" >&2; exit 1; }
+  cd "$WORKSPACE_ABS" || {
+    echo "ERROR: Cannot cd to workspace: $WORKSPACE" >&2
+    exit 1
+  }
   if [[ "$PLAN_FILE" != /* ]]; then
     PLAN_FILE="$WORKSPACE_ABS/$PLAN_FILE"
   fi
@@ -95,10 +95,10 @@ else
 fi
 mkdir -p "$TMP_DIR"
 PROGRESS_FILE="$TMP_DIR/progress.log"
-[ ! -f "$PROGRESS_FILE" ] && echo "# Progress Log" > "$PROGRESS_FILE"
+[ ! -f "$PROGRESS_FILE" ] && echo "# Progress Log" >"$PROGRESS_FILE"
 
 case "$CLI_BIN" in
-  claude|cline|copilot|codex|cursor-agent|droid|gemini|goose|kiro|opencode) ;;
+  claude | cline | copilot | codex | cursor-agent | droid | gemini | goose | kiro | opencode) ;;
   *)
     echo "------START: VALIDATOR------"
     echo "ERROR: --cli must be 'claude', 'cline', 'copilot', 'codex', 'cursor-agent', 'droid', 'gemini', 'goose', 'kiro', or 'opencode' (got: $CLI_BIN)"
@@ -139,7 +139,7 @@ if [ ! -s "$PLAN_FILE" ]; then
 fi
 
 # Validate selected CLI is available
-if ! command -v "$CLI_BIN" &> /dev/null; then
+if ! command -v "$CLI_BIN" &>/dev/null; then
   echo "------START: VALIDATOR------"
   echo "ERROR: '$CLI_BIN' CLI not found in PATH"
   echo "VERDICT: FAILED"
@@ -152,7 +152,9 @@ IMPLEMENTER_OUTPUT_ABS="$(cd "$(dirname "$IMPLEMENTER_OUTPUT")" && pwd)/$(basena
 
 # Extract incomplete tasks to reduce token usage
 EXTRACTED_PLAN=$(mktemp "$TMP_DIR/validate-extract.XXXXXX")
+# shellcheck disable=SC2329
 cleanup() {
+  # shellcheck disable=SC2317
   [ -n "${EXTRACTED_PLAN:-}" ] && rm -f "$EXTRACTED_PLAN"
   [ -n "${temp_file:-}" ] && rm -f "$temp_file"
   [ -n "${temp_err:-}" ] && rm -f "$temp_err"
@@ -170,7 +172,7 @@ temp_err=$(mktemp "$TMP_DIR/validator-err.XXXXXX")
 temp_prompt=$(mktemp "$TMP_DIR/validator-prompt.XXXXXX")
 
 # Build prompt in temp file using heredoc (safer for special characters)
-cat > "$temp_prompt" << 'STATIC_PROMPT'
+cat >"$temp_prompt" <<'STATIC_PROMPT'
 You are AGENT 2: THE VALIDATOR. Your job is to audit the implementer's work and ensure it is validated, quantified, and repeatable.
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -224,31 +226,33 @@ IMPLEMENTER OUTPUT (what they claim to have done)
 ═══════════════════════════════════════════════════════════════════════════════
 STATIC_PROMPT
 
-# Append implementer output
-cat "$IMPLEMENTER_OUTPUT_ABS" >> "$temp_prompt"
-
-# Append plan file path and content
-echo "" >> "$temp_prompt"
-echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
-echo "PLAN FILE TO UPDATE (done = [x] or [ x] on task line; revert = change back to [  ])" >> "$temp_prompt"
-echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
-echo "$PLAN_FILE" >> "$temp_prompt"
-echo "" >> "$temp_prompt"
-echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
-echo "PLAN CONTENT (incomplete tasks)" >> "$temp_prompt"
-echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
-cat "$EXTRACTED_PLAN" >> "$temp_prompt"
+# Append implementer output and plan file path header
+{
+  cat "$IMPLEMENTER_OUTPUT_ABS"
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════════════════════"
+  echo "PLAN FILE TO UPDATE (done = [x] or [ x] on task line; revert = change back to [  ])"
+  echo "═══════════════════════════════════════════════════════════════════════════════"
+  echo "$PLAN_FILE"
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════════════════════"
+  echo "PLAN CONTENT (incomplete tasks)"
+  echo "═══════════════════════════════════════════════════════════════════════════════"
+  cat "$EXTRACTED_PLAN"
+} >>"$temp_prompt"
 
 # Append progress
-echo "" >> "$temp_prompt"
-echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
-echo "PROGRESS LOG (update this file when approving): $PROGRESS_FILE" >> "$temp_prompt"
-echo "═══════════════════════════════════════════════════════════════════════════════" >> "$temp_prompt"
-cat "$PROGRESS_FILE" >> "$temp_prompt"
+{
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════════════════════"
+  echo "PROGRESS LOG (update this file when approving): $PROGRESS_FILE"
+  echo "═══════════════════════════════════════════════════════════════════════════════"
+  cat "$PROGRESS_FILE"
+} >>"$temp_prompt"
 
 # Streaming output colors (ANSI escape codes)
 # Uncomment your preferred background color:
-STREAM_BG="\033[48;5;236m"  # Dark gray (default - subtle, good readability)
+STREAM_BG="\033[48;5;236m" # Dark gray (default - subtle, good readability)
 # STREAM_BG="\033[48;5;17m"   # Dark blue
 # STREAM_BG="\033[48;5;22m"   # Dark green
 # STREAM_BG="\033[100m"       # Bright black
@@ -287,7 +291,7 @@ elif [ "$CLI_BIN" = "opencode" ]; then
   [ -n "$OPENCODE_MODEL" ] && CLI_ARGS+=(--model "$OPENCODE_MODEL")
 fi
 if [ -n "$CLI_FLAGS" ]; then
-  read -r -a EXTRA_CLI_ARGS <<< "$CLI_FLAGS"
+  read -r -a EXTRA_CLI_ARGS <<<"$CLI_FLAGS"
   CLI_ARGS+=("${EXTRA_CLI_ARGS[@]}")
 fi
 
@@ -298,7 +302,7 @@ if [ "$STREAM_OUTPUT" = "true" ]; then
   echo "[validator] Running $CLI_BIN (streaming)..." >&2
   printf "%b" "${STREAM_BG}" >/dev/tty 2>/dev/null || true
   if [ "$CLI_BIN" = "codex" ]; then
-    codex exec "${CLI_ARGS[@]}" - < "$temp_prompt" 2>&1 | tee "$temp_file"
+    codex exec "${CLI_ARGS[@]}" - <"$temp_prompt" 2>&1 | tee "$temp_file"
   elif [ "$CLI_BIN" = "droid" ]; then
     droid "${CLI_ARGS[@]}" -f "$temp_prompt" 2>&1 | tee "$temp_file"
   elif [ "$CLI_BIN" = "kiro" ]; then
@@ -306,22 +310,22 @@ if [ "$STREAM_OUTPUT" = "true" ]; then
   elif [ "$CLI_BIN" = "opencode" ]; then
     opencode "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" 2>&1 | tee "$temp_file"
   else
-    "$CLI_BIN" "${CLI_ARGS[@]}" - < "$temp_prompt" 2>&1 | tee "$temp_file"
+    "$CLI_BIN" "${CLI_ARGS[@]}" - <"$temp_prompt" 2>&1 | tee "$temp_file"
   fi
   exit_code=${PIPESTATUS[0]}
   printf "%b" "${STREAM_RESET}" >/dev/tty 2>/dev/null || true
 else
   echo "[validator] Running $CLI_BIN..." >&2
   if [ "$CLI_BIN" = "codex" ]; then
-    codex exec "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_file" 2> "$temp_err"
+    codex exec "${CLI_ARGS[@]}" - <"$temp_prompt" >"$temp_file" 2>"$temp_err"
   elif [ "$CLI_BIN" = "droid" ]; then
-    droid "${CLI_ARGS[@]}" -f "$temp_prompt" > "$temp_file" 2> "$temp_err"
+    droid "${CLI_ARGS[@]}" -f "$temp_prompt" >"$temp_file" 2>"$temp_err"
   elif [ "$CLI_BIN" = "kiro" ]; then
-    kiro "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" > "$temp_file" 2> "$temp_err"
+    kiro "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" >"$temp_file" 2>"$temp_err"
   elif [ "$CLI_BIN" = "opencode" ]; then
-    opencode "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" > "$temp_file" 2> "$temp_err"
+    opencode "${CLI_ARGS[@]}" "$(cat "$temp_prompt")" >"$temp_file" 2>"$temp_err"
   else
-    "$CLI_BIN" "${CLI_ARGS[@]}" - < "$temp_prompt" > "$temp_file" 2> "$temp_err"
+    "$CLI_BIN" "${CLI_ARGS[@]}" - <"$temp_prompt" >"$temp_file" 2>"$temp_err"
   fi
   exit_code=$?
   set -e
@@ -334,4 +338,4 @@ else
 fi
 
 # Pass through exit code
-exit $exit_code
+exit "$exit_code"

@@ -15,7 +15,7 @@ PREV_ARG=""
 for arg in "$@"; do
   case "$arg" in
     --prd-path=*) PRD_PATH="${arg#*=}" ;;
-    --prd-path)  ;;
+    --prd-path) ;;
     *)
       if [ "$PREV_ARG" = "--prd-path" ]; then PRD_PATH="$arg"; fi
       ;;
@@ -23,7 +23,7 @@ for arg in "$@"; do
   PREV_ARG="$arg"
 done
 
-[ -f "$STATE_FILE" ] && source "$STATE_FILE" 2>/dev/null || true
+if [ -f "$STATE_FILE" ]; then source "$STATE_FILE" 2>/dev/null || true; fi
 [ -z "$PRD_PATH" ] && PRD_PATH="${WIZARD_PRD_PATH:-}"
 
 echo "[wizard] Step 5: Write file" >&2

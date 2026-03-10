@@ -6,9 +6,10 @@
 set -e
 set -o pipefail
 
+# shellcheck disable=SC2034
 WIZARD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STATE_FILE="${WIZARD_STATE_FILE:-$TMP_DIR/wizard-state}"
 TMP_DIR="${PLAN_AN_GO_TMP:-./tmp}"
+STATE_FILE="${WIZARD_STATE_FILE:-$TMP_DIR/wizard-state}"
 
 PRD_PATH=""
 PREV_ARG=""
@@ -16,7 +17,7 @@ PREV_ARG=""
 for arg in "$@"; do
   case "$arg" in
     --prd-path=*) PRD_PATH="${arg#*=}" ;;
-    --prd-path)  ;;
+    --prd-path) ;;
     *)
       if [ "$PREV_ARG" = "--prd-path" ]; then PRD_PATH="$arg"; fi
       ;;
@@ -24,7 +25,7 @@ for arg in "$@"; do
   PREV_ARG="$arg"
 done
 
-[ -f "$STATE_FILE" ] && source "$STATE_FILE" 2>/dev/null || true
+if [ -f "$STATE_FILE" ]; then source "$STATE_FILE" 2>/dev/null || true; fi
 [ -z "$PRD_PATH" ] && PRD_PATH="${WIZARD_PRD_PATH:-}"
 
 echo "[wizard] Step 4: Validate PRD" >&2

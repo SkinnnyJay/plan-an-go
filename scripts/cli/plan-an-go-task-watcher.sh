@@ -57,7 +57,6 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 BOLD='\033[1m'
 DIM='\033[2m'
-BLINK='\033[5m'
 RESET='\033[0m'
 
 PLAN_PATH="./PLAN.md"
@@ -133,7 +132,7 @@ while [[ $# -gt 0 ]]; do
       POLL_SECS="$2"
       shift 2
       ;;
-    -h|--help)
+    -h | --help)
       head -50 "$0" | grep -E '^#|^\s+--|^\s+\./'
       exit 0
       ;;
@@ -154,8 +153,8 @@ if [[ ! -f "$PLAN_PATH" ]]; then
 fi
 
 # Ensure minimal context is non-negative integers
-MINIMAL_BEFORE=$(( MINIMAL_BEFORE + 0 ))
-MINIMAL_AFTER=$(( MINIMAL_AFTER + 0 ))
+MINIMAL_BEFORE=$((MINIMAL_BEFORE + 0))
+MINIMAL_AFTER=$((MINIMAL_AFTER + 0))
 [[ "$MINIMAL_BEFORE" -lt 0 ]] && MINIMAL_BEFORE=0
 [[ "$MINIMAL_AFTER" -lt 0 ]] && MINIMAL_AFTER=0
 
@@ -179,13 +178,19 @@ STATE_DIR=$(mktemp -d "$TMP_DIR/task-watcher.XXXXXX")
 PREV_COMPLETED="${STATE_DIR}/prev_completed.log"
 CURRENT_TASKS="${STATE_DIR}/current_tasks.log"
 FIRST_RUN="${STATE_DIR}/first_run.flag"
-trap "rm -rf $STATE_DIR" EXIT
+trap 'rm -rf "$STATE_DIR"' EXIT
 
 touch "$PREV_COMPLETED"
 
 # Optional: disable colors
 if [[ "$USE_COLOR" != "true" ]]; then
-  RED=""; GREEN=""; YELLOW=""; CYAN=""; BOLD=""; DIM=""; BLINK=""; RESET=""
+  RED=""
+  GREEN=""
+  YELLOW=""
+  CYAN=""
+  BOLD=""
+  DIM=""
+  RESET=""
 fi
 
 format_timestamp() {
@@ -206,15 +211,15 @@ time_since_last_change() {
     return
   fi
   now=$(date +%s)
-  elapsed=$(( now - mtime ))
+  elapsed=$((now - mtime))
   if [[ $elapsed -lt 60 ]]; then
     echo "${elapsed}s ago"
   elif [[ $elapsed -lt 3600 ]]; then
-    echo "$(( elapsed / 60 ))m ago"
+    echo "$((elapsed / 60))m ago"
   elif [[ $elapsed -lt 86400 ]]; then
-    echo "$(( elapsed / 3600 ))h ago"
+    echo "$((elapsed / 3600))h ago"
   else
-    echo "$(( elapsed / 86400 ))d ago"
+    echo "$((elapsed / 86400))d ago"
   fi
 }
 
@@ -269,7 +274,7 @@ truncate_desc() {
   if [[ ${#s} -le "$max" ]]; then
     echo "$s"
   else
-    echo "${s:0:$((max-3))}..."
+    echo "${s:0:$((max - 3))}..."
   fi
 }
 
@@ -281,14 +286,14 @@ progress_bar() {
   local pct=0
   local filled=0
   if [[ "$total" -gt 0 ]]; then
-    pct=$(( completed * 100 / total ))
-    filled=$(( w * completed / total ))
+    pct=$((completed * 100 / total))
+    filled=$((w * completed / total))
     [[ "$filled" -gt "$w" ]] && filled="$w"
   fi
-  local empty=$(( w - filled ))
+  local empty=$((w - filled))
   local bar=""
-  for (( i=0; i<filled; i++ )); do bar="${bar}="; done
-  for (( i=0; i<empty; i++ )); do bar="${bar} "; done
+  for ((i = 0; i < filled; i++)); do bar="${bar}="; done
+  for ((i = 0; i < empty; i++)); do bar="${bar} "; done
   echo "[${bar}] ${completed}/${total}  ${pct}%"
 }
 
@@ -296,10 +301,10 @@ progress_bar() {
 ID_COL=10
 CHECK_COL=5
 AGENT_COL=10
-DESC_COL=$(( WIDTH - ID_COL - CHECK_COL - AGENT_COL - 11 ))
+DESC_COL=$((WIDTH - ID_COL - CHECK_COL - AGENT_COL - 11))
 [[ "$DESC_COL" -lt 10 ]] && DESC_COL=40
 if [[ -n "$MAX_TASK_LENGTH" ]]; then
-  DESC_COL=$(( MAX_TASK_LENGTH + 0 ))
+  DESC_COL=$((MAX_TASK_LENGTH + 0))
   [[ "$DESC_COL" -lt 5 ]] && DESC_COL=40
 fi
 
@@ -323,32 +328,32 @@ minimal_window() {
 
 redraw() {
   set +e
-  parse_tasks > "$CURRENT_TASKS" || true
+  parse_tasks >"$CURRENT_TASKS" || true
   local total
-  total=$(wc -l < "$CURRENT_TASKS" 2>/dev/null) || total=0
-  total=$(( total + 0 ))
+  total=$(wc -l <"$CURRENT_TASKS" 2>/dev/null) || total=0
+  total=$((total + 0))
   local completed=0
   [[ -s "$CURRENT_TASKS" ]] && completed=$(awk -F'\t' '$1==1 {c++} END {print c+0}' "$CURRENT_TASKS")
 
   # Build set of previously completed IDs; newly completed = in curr but not in prev
-  awk -F'\t' '$1==1 {print $2}' "$CURRENT_TASKS" > "${STATE_DIR}/curr_completed.log" 2>/dev/null || true
-  sort -u "${STATE_DIR}/curr_completed.log" 2>/dev/null > "${STATE_DIR}/curr_sorted.log" || true
-  sort -u "$PREV_COMPLETED" 2>/dev/null > "${STATE_DIR}/prev_sorted.log" || true
+  awk -F'\t' '$1==1 {print $2}' "$CURRENT_TASKS" >"${STATE_DIR}/curr_completed.log" 2>/dev/null || true
+  sort -u "${STATE_DIR}/curr_completed.log" 2>/dev/null >"${STATE_DIR}/curr_sorted.log" || true
+  sort -u "$PREV_COMPLETED" 2>/dev/null >"${STATE_DIR}/prev_sorted.log" || true
   # Only highlight newly completed after first run (so prev is from last redraw)
   if [[ -f "$FIRST_RUN" ]]; then
-    comm -23 "${STATE_DIR}/curr_sorted.log" "${STATE_DIR}/prev_sorted.log" 2>/dev/null > "${STATE_DIR}/newly_completed.log" || true
+    comm -23 "${STATE_DIR}/curr_sorted.log" "${STATE_DIR}/prev_sorted.log" 2>/dev/null >"${STATE_DIR}/newly_completed.log" || true
   else
     touch "${STATE_DIR}/newly_completed.log"
   fi
   cp "${STATE_DIR}/curr_completed.log" "$PREV_COMPLETED" 2>/dev/null || true
   touch "$FIRST_RUN" 2>/dev/null || true
 
-  ( tput clear 2>/dev/null || clear ) || true
+  (tput clear 2>/dev/null || clear) || true
   tput cup 0 0 2>/dev/null || true
 
   local task_file="$CURRENT_TASKS"
   if [[ "$MINIMAL" == "true" ]]; then
-    minimal_window "$MINIMAL_BEFORE" "$MINIMAL_AFTER" > "${STATE_DIR}/minimal_tasks.log" 2>/dev/null || true
+    minimal_window "$MINIMAL_BEFORE" "$MINIMAL_AFTER" >"${STATE_DIR}/minimal_tasks.log" 2>/dev/null || true
     task_file="${STATE_DIR}/minimal_tasks.log"
   fi
 
@@ -356,14 +361,14 @@ redraw() {
   local show_agent_col=false
   awk -F'\t' 'NF >= 4 && $4 != "" { exit 0 } END { exit 1 }' "$CURRENT_TASKS" 2>/dev/null && show_agent_col=true
   local desc_col_this="$DESC_COL"
-  [[ "$show_agent_col" != "true" ]] && desc_col_this=$(( WIDTH - ID_COL - CHECK_COL - 8 ))
+  [[ "$show_agent_col" != "true" ]] && desc_col_this=$((WIDTH - ID_COL - CHECK_COL - 8))
   [[ "$desc_col_this" -lt 10 ]] && desc_col_this=40
 
   if [[ "$NO_HEADER" != "true" ]]; then
     if [[ "$MINIMAL" == "true" ]]; then
       echo -e "${BOLD}${CYAN}Plan Task Watcher (minimal)${RESET}${DIM}                  $(basename "$PLAN_PATH")${RESET}"
       sep=""
-      for (( i=0; i<desc_col_this; i++ )); do sep="${sep}-"; done
+      for ((i = 0; i < desc_col_this; i++)); do sep="${sep}-"; done
       if [[ "$show_agent_col" == "true" ]]; then
         echo -e "${DIM}+----------+-----+----------+${sep}+${RESET}"
         printf "${DIM}%-10s | %-3s | %-${AGENT_COL}s | %-${desc_col_this}s${RESET}\n" "ID" "" "Agent" "Task summary"
@@ -380,7 +385,7 @@ redraw() {
       echo -e "${DIM}+----------+-----+${RESET}"
     else
       sep=""
-      for (( i=0; i<desc_col_this; i++ )); do sep="${sep}-"; done
+      for ((i = 0; i < desc_col_this; i++)); do sep="${sep}-"; done
       echo -e "${BOLD}${CYAN}Plan Task Watcher${RESET}${DIM}                                    $(basename "$PLAN_PATH")${RESET}"
       if [[ "$show_agent_col" == "true" ]]; then
         echo -e "${DIM}+----------+-----+----------+${sep}+${RESET}"
@@ -394,12 +399,12 @@ redraw() {
     fi
   else
     sep=""
-    for (( i=0; i<desc_col_this; i++ )); do sep="${sep}-"; done
+    for ((i = 0; i < desc_col_this; i++)); do sep="${sep}-"; done
   fi
 
   local max_rows=30
-  [[ -n "$LINES" ]] && max_rows=$(( LINES - 8 ))
-  [[ -n "$MAX_ROWS" ]] && max_rows=$(( MAX_ROWS + 0 ))
+  [[ -n "$LINES" ]] && max_rows=$((LINES - 8))
+  [[ -n "$MAX_ROWS" ]] && max_rows=$((MAX_ROWS + 0))
   [[ "$max_rows" -lt 1 ]] && max_rows=30
   local row=0
   while IFS= read -r line && [[ $row -lt $max_rows ]]; do
@@ -445,11 +450,11 @@ redraw() {
     else
       printf "%-10s | ${symbol_style}%-3s${RESET} | %-${desc_col_this}s\n" "$id" "$check" "$desc"
     fi
-    row=$(( row + 1 ))
-  done < "$task_file"
+    row=$((row + 1))
+  done <"$task_file"
 
   completed=$(awk -F'\t' 'BEGIN{c=0} $1==1{c++} END{print c+0}' "$CURRENT_TASKS" 2>/dev/null) || completed=0
-  local not_complete=$(( total - completed ))
+  local not_complete=$((total - completed))
   [[ "$not_complete" -lt 0 ]] && not_complete=0
 
   if [[ "$IDS_ONLY" == "true" ]]; then
@@ -465,12 +470,12 @@ redraw() {
   fi
   echo -e "${DIM}Last refresh: $(format_timestamp)${RESET}"
   if [[ "$SHOW_PROGRESS" == "true" ]]; then
-    local bar_w=$(( WIDTH - 20 ))
+    local bar_w=$((WIDTH - 20))
     [[ "$bar_w" -lt 20 ]] && bar_w=40
     echo -e "${BOLD}$(progress_bar "$completed" "$total" "$bar_w")${RESET}"
   fi
   bot_sep=""
-  for (( i=0; i<WIDTH-2; i++ )); do bot_sep="${bot_sep}-"; done
+  for ((i = 0; i < WIDTH - 2; i++)); do bot_sep="${bot_sep}-"; done
   echo -e "${DIM}+${bot_sep}+${RESET}"
   if [[ "$ONCE" != "true" ]]; then
     echo -e "${YELLOW}Watching for changes... (Ctrl+C to stop)${RESET}"

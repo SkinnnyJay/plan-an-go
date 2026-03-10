@@ -15,7 +15,8 @@ ENV_LOCAL="$REPO_ROOT/.env.local"
 # Load env so we can check for API keys (don't overwrite existing exports)
 load_env() {
   for f in "$ENV_FILE" "$ENV_LOCAL"; do
-    [ -f "$f" ] && set -a && . "$f" 2>/dev/null; set +a
+    [ -f "$f" ] && set -a && . "$f" 2>/dev/null
+    set +a
   done
 }
 load_env
@@ -26,14 +27,13 @@ GEMINI_API_KEY="${PLAN_AN_GO_GEMINI_API_KEY:-${GEMINI_API_KEY:-$GOOGLE_API_KEY}}
 export ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY
 
 LOGOUT_MODE=false
-WANT_ALL=false
 WANT_CLIS=()
 
 for arg in "$@"; do
   case "$arg" in
     --logout) LOGOUT_MODE=true ;;
-    all)      WANT_ALL=true; WANT_CLIS=(claude codex gemini) ;;
-    claude|cline|copilot|codex|cursor-agent|droid|gemini|goose|kiro|opencode) WANT_CLIS+=("$arg") ;;
+    all) WANT_CLIS=(claude codex gemini) ;; # WANT_ALL semantics: install all
+    claude | cline | copilot | codex | cursor-agent | droid | gemini | goose | kiro | opencode) WANT_CLIS+=("$arg") ;;
   esac
 done
 
@@ -44,7 +44,7 @@ if [ "$LOGOUT_MODE" = false ] && [ ${#WANT_CLIS[@]} -eq 0 ]; then
     echo -n "  Authenticate $c [y/n]? "
     read -r ans
     case "$ans" in
-      y|Y|yes) WANT_CLIS+=("$c") ;;
+      y | Y | yes) WANT_CLIS+=("$c") ;;
     esac
   done
 fi
@@ -91,11 +91,11 @@ fi
 # Auth: skip if API key is set (force API key = use .env, no web)
 use_api_key() {
   case "$1" in
-    claude) [ -n "${ANTHROPIC_API_KEY:-}" ]; ;;
-    codex)  [ -n "${OPENAI_API_KEY:-}" ]; ;;
-    gemini) [ -n "${GEMINI_API_KEY:-}" ]; ;;
-    copilot) [ -n "${COPILOT_GITHUB_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; ;;
-    *)      false ;;
+    claude) [ -n "${ANTHROPIC_API_KEY:-}" ] ;;
+    codex) [ -n "${OPENAI_API_KEY:-}" ] ;;
+    gemini) [ -n "${GEMINI_API_KEY:-}" ] ;;
+    copilot) [ -n "${COPILOT_GITHUB_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ] ;;
+    *) false ;;
   esac
 }
 
@@ -200,17 +200,20 @@ auth_kiro() {
 FAILED=0
 for c in "${WANT_CLIS[@]}"; do
   case "$c" in
-    claude)         auth_claude || FAILED=$((FAILED+1)) ;;
-    cline)          auth_cline || FAILED=$((FAILED+1)) ;;
-    codex)          auth_codex || FAILED=$((FAILED+1)) ;;
-    copilot)        auth_copilot || FAILED=$((FAILED+1)) ;;
-    cursor-agent)   auth_cursor_agent ;;
-    droid)          auth_droid || FAILED=$((FAILED+1)) ;;
-    gemini)         auth_gemini || FAILED=$((FAILED+1)) ;;
-    goose)          auth_goose ;;
-    kiro)           auth_kiro || FAILED=$((FAILED+1)) ;;
-    opencode)       auth_opencode || FAILED=$((FAILED+1)) ;;
-    *)              echo "  Unknown CLI: $c"; FAILED=$((FAILED+1)) ;;
+    claude) auth_claude || FAILED=$((FAILED + 1)) ;;
+    cline) auth_cline || FAILED=$((FAILED + 1)) ;;
+    codex) auth_codex || FAILED=$((FAILED + 1)) ;;
+    copilot) auth_copilot || FAILED=$((FAILED + 1)) ;;
+    cursor-agent) auth_cursor_agent ;;
+    droid) auth_droid || FAILED=$((FAILED + 1)) ;;
+    gemini) auth_gemini || FAILED=$((FAILED + 1)) ;;
+    goose) auth_goose ;;
+    kiro) auth_kiro || FAILED=$((FAILED + 1)) ;;
+    opencode) auth_opencode || FAILED=$((FAILED + 1)) ;;
+    *)
+      echo "  Unknown CLI: $c"
+      FAILED=$((FAILED + 1))
+      ;;
   esac
 done
 
